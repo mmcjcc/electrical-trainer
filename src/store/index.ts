@@ -21,6 +21,7 @@ import {
 export * from './types'
 export * from './selectors'
 export * from './selectors.facts'
+export * from './selectors.math'
 export { dayKey, relativeDays, daysAgo } from './time'
 export type { ImportMode } from './backup'
 

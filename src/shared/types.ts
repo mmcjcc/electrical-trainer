@@ -244,7 +244,11 @@ export interface ProblemInstance {
   answerLine: string
   /** Four options in display order, exactly one correct. */
   choices: AnswerChoice[]
-  /** Optional data for the recipe's picture (conduit, box, load bars); the UI picks by recipe family. */
+  /**
+   * Optional data for the recipe's picture, picked by `visual.kind` ('raceway', 'box', 'load'); unknown
+   * kinds draw nothing. `visual.after = '<lineId>'` says which line the picture waits for (default: the
+   * answer line), so it never gives the answer away early.
+   */
   visual?: Record<string, unknown>
 }
 
