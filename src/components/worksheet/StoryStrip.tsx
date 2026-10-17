@@ -68,7 +68,8 @@ export function StoryStrip({ story, givens, ask, progress, startOpen = true }: S
       </div>
       <div id={bodyId}>
         {open ? (
-          <div className="max-h-[34dvh] overflow-y-auto pb-1">
+          // On a phone the active line needs the room: the question scrolls inside a short strip.
+          <div className="max-h-[22dvh] overflow-y-auto overscroll-contain pb-1 md:max-h-[34dvh]">
             <p className="text-base leading-relaxed text-ink">{highlightStory(story, givens)}</p>
             <p className="mt-2 text-sm text-slate">
               <span className="font-semibold">They ask for:</span> {ask}
