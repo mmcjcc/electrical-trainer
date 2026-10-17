@@ -4,9 +4,10 @@
  */
 import type { NecEdition, Question, TopicId } from '@/shared/types'
 import { QUESTIONS as MD_LAW } from './mdLaw'
+import { QUESTIONS as THEORY } from './theory'
 
 /** Each topic file exports QUESTIONS; the ARCHITECT adds the import here. */
-const BANK: Question[] = [...MD_LAW]
+const BANK: Question[] = [...THEORY, ...MD_LAW]
 
 for (const [i, q] of BANK.entries()) {
   if (BANK.findIndex((x) => x.id === q.id) !== i) throw new Error(`duplicate question id ${q.id}`)
