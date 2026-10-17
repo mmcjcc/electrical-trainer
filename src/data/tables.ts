@@ -14,7 +14,7 @@
 
 export const AWG_SIZES = [
   '14', '12', '10', '8', '6', '4', '3', '2', '1', '1/0', '2/0', '3/0', '4/0',
-  '250', '300', '350', '400', '500', '600', '700', '750',
+  '250', '300', '350', '400', '500', '600', '700', '750', '1000',
 ] as const
 export type ConductorSize = (typeof AWG_SIZES)[number]
 
@@ -28,7 +28,7 @@ export const CIRCULAR_MILS: Record<ConductorSize, number> = {
   '14': 4110, '12': 6530, '10': 10380, '8': 16510, '6': 26240, '4': 41740, '3': 52620, '2': 66360,
   '1': 83690, '1/0': 105600, '2/0': 133100, '3/0': 167800, '4/0': 211600,
   '250': 250000, '300': 300000, '350': 350000, '400': 400000, '500': 500000, '600': 600000,
-  '700': 700000, '750': 750000,
+  '700': 700000, '750': 750000, '1000': 1000000,
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -46,13 +46,14 @@ export const AMPACITY: Record<Metal, Partial<Record<ConductorSize, [number, numb
     '1/0': [125, 150, 170], '2/0': [145, 175, 195], '3/0': [165, 200, 225], '4/0': [195, 230, 260],
     '250': [215, 255, 290], '300': [240, 285, 320], '350': [260, 310, 350], '400': [280, 335, 380],
     '500': [320, 380, 430], '600': [350, 420, 475], '700': [385, 460, 520], '750': [400, 475, 535],
+    '1000': [455, 545, 615],
   },
   al: {
     '12': [15, 20, 25], '10': [25, 30, 35], '8': [35, 40, 45], '6': [40, 50, 55], '4': [55, 65, 75],
     '3': [65, 75, 85], '2': [75, 90, 100], '1': [85, 100, 115], '1/0': [100, 120, 135],
     '2/0': [115, 135, 150], '3/0': [130, 155, 175], '4/0': [150, 180, 205], '250': [170, 205, 230],
     '300': [195, 230, 260], '350': [210, 250, 280], '400': [225, 270, 305], '500': [260, 310, 350],
-    '600': [285, 340, 385], '700': [315, 375, 425], '750': [320, 385, 435],
+    '600': [285, 340, 385], '700': [315, 375, 425], '750': [320, 385, 435], '1000': [375, 445, 500],
   },
 }
 
@@ -116,9 +117,13 @@ export function adjustmentPct(currentCarrying: number): number {
 // Chapter 9, Table 5: conductor area (in²) by insulation type
 // ---------------------------------------------------------------------------------------------
 
-export type Insulation = 'THHN' | 'THW' | 'XHHW'
+export type Insulation = 'THHN' | 'THW' | 'XHHW' | 'TW'
 
-/** THHN = THHN/THWN/THWN-2; THW = THW/THHW/THW-2 (and TW for 14-8); XHHW = XHHW/XHHW-2. */
+/**
+ * THHN = THHN/THWN/THWN-2; THW = THW/THHW/THW-2; XHHW = XHHW/XHHW-2; TW for 14-8 AWG.
+ * (Review 2026-10-16: THW 14-8 had been entered with TW's smaller areas; corrected, see
+ * docs/reviews/tables-review.md.)
+ */
 export const CONDUCTOR_AREA: Record<Insulation, Partial<Record<ConductorSize, number>>> = {
   THHN: {
     '14': 0.0097, '12': 0.0133, '10': 0.0211, '8': 0.0366, '6': 0.0507, '4': 0.0824, '3': 0.0973,
@@ -127,15 +132,18 @@ export const CONDUCTOR_AREA: Record<Insulation, Partial<Record<ConductorSize, nu
     '700': 0.9887, '750': 1.0496,
   },
   THW: {
-    '14': 0.0139, '12': 0.0181, '10': 0.0243, '8': 0.0437, '6': 0.0726, '4': 0.0973, '3': 0.1134,
+    '14': 0.0209, '12': 0.026, '10': 0.0333, '8': 0.0556, '6': 0.0726, '4': 0.0973, '3': 0.1134,
     '2': 0.1333, '1': 0.1901, '1/0': 0.2223, '2/0': 0.2624, '3/0': 0.3117, '4/0': 0.3718,
-    '250': 0.4596, '300': 0.5281, '350': 0.5958, '400': 0.6619, '500': 0.7901,
+    '250': 0.4596, '300': 0.5281, '350': 0.5958, '400': 0.6619, '500': 0.7901, '600': 0.9729,
+    '700': 1.101, '750': 1.1652,
   },
   XHHW: {
     '14': 0.0139, '12': 0.0181, '10': 0.0243, '8': 0.0437, '6': 0.059, '4': 0.0814, '3': 0.0962,
     '2': 0.1146, '1': 0.1534, '1/0': 0.1825, '2/0': 0.219, '3/0': 0.2642, '4/0': 0.3197,
-    '250': 0.3904, '300': 0.4536, '350': 0.5166, '400': 0.5782, '500': 0.6984,
+    '250': 0.3904, '300': 0.4536, '350': 0.5166, '400': 0.5782, '500': 0.6984, '600': 0.8709,
+    '700': 0.9923, '750': 1.0532,
   },
+  TW: { '14': 0.0139, '12': 0.0181, '10': 0.0243, '8': 0.0437 },
 }
 
 export function conductorArea(ins: Insulation, size: ConductorSize): number {
@@ -145,8 +153,10 @@ export function conductorArea(ins: Insulation, size: ConductorSize): number {
 }
 
 // ---------------------------------------------------------------------------------------------
-// Chapter 9, Table 4: raceway internal area (in²); the percent columns are total × percent,
-// rounded to three decimals the way the table prints them.
+// Chapter 9, Table 4: raceway internal diameter and area (in²). The table's columns are computed from
+// the internal diameter (π/4 × ID² × percent, rounded to three decimals), NOT from the rounded total,
+// so we store the diameters (review 2026-10-16: 22 cells were 0.001 off when derived from the total).
+// RACEWAY_TOTAL_AREA stays as an independent cross-check (tables.test.ts).
 // ---------------------------------------------------------------------------------------------
 
 export const TRADE_SIZES = ['3/8', '1/2', '3/4', '1', '1-1/4', '1-1/2', '2', '2-1/2', '3', '3-1/2', '4'] as const
@@ -163,7 +173,17 @@ export const RACEWAY_NAME: Record<RacewayType, string> = {
   FMC: 'FMC (flexible metal conduit)',
 }
 
-/** 100% internal area by trade size. */
+/** Nominal internal diameter (in.) by trade size. */
+export const RACEWAY_ID: Record<RacewayType, Partial<Record<TradeSize, number>>> = {
+  EMT: { '1/2': 0.622, '3/4': 0.824, '1': 1.049, '1-1/4': 1.38, '1-1/2': 1.61, '2': 2.067, '2-1/2': 2.731, '3': 3.356, '3-1/2': 3.834, '4': 4.334 },
+  IMC: { '1/2': 0.66, '3/4': 0.864, '1': 1.105, '1-1/4': 1.448, '1-1/2': 1.683, '2': 2.15, '2-1/2': 2.557, '3': 3.176, '3-1/2': 3.671, '4': 4.166 },
+  RMC: { '1/2': 0.632, '3/4': 0.836, '1': 1.063, '1-1/4': 1.394, '1-1/2': 1.624, '2': 2.083, '2-1/2': 2.489, '3': 3.09, '3-1/2': 3.57, '4': 4.05 },
+  PVC40: { '1/2': 0.602, '3/4': 0.804, '1': 1.029, '1-1/4': 1.36, '1-1/2': 1.59, '2': 2.047, '2-1/2': 2.445, '3': 3.042, '3-1/2': 3.521, '4': 3.998 },
+  PVC80: { '1/2': 0.526, '3/4': 0.722, '1': 0.936, '1-1/4': 1.255, '1-1/2': 1.476, '2': 1.913, '2-1/2': 2.29, '3': 2.864, '3-1/2': 3.326, '4': 3.786 },
+  FMC: { '3/8': 0.384, '1/2': 0.635, '3/4': 0.824, '1': 1.02, '1-1/4': 1.275, '1-1/2': 1.538, '2': 2.04, '2-1/2': 2.5, '3': 3.0, '3-1/2': 3.5, '4': 4.0 },
+}
+
+/** 100% internal area by trade size, as printed (cross-check for RACEWAY_ID). */
 export const RACEWAY_TOTAL_AREA: Record<RacewayType, Partial<Record<TradeSize, number>>> = {
   EMT: { '1/2': 0.304, '3/4': 0.533, '1': 0.864, '1-1/4': 1.496, '1-1/2': 2.036, '2': 3.356, '2-1/2': 5.858, '3': 8.846, '3-1/2': 11.545, '4': 14.753 },
   IMC: { '1/2': 0.342, '3/4': 0.586, '1': 0.959, '1-1/4': 1.647, '1-1/2': 2.225, '2': 3.63, '2-1/2': 5.135, '3': 7.922, '3-1/2': 10.584, '4': 13.631 },
@@ -182,15 +202,34 @@ export function fillCaseFor(count: number, nipple = false): FillCase {
   return count === 1 ? 'one' : count === 2 ? 'two' : 'over2'
 }
 
-/** The Table 4 column value: total × percent, rounded to 3 decimals as printed. */
-export function racewayArea(type: RacewayType, size: TradeSize, fill: FillCase): number {
-  const total = RACEWAY_TOTAL_AREA[type][size]
-  if (total === undefined) throw new Error(`no ${type} in ${size}`)
-  return Math.round(total * FILL_PCT[fill] * 10) / 1000
+function round3(v: number): number {
+  return Math.round(v * 1000 + 1e-9) / 1000
 }
 
+function racewayExactArea(type: RacewayType, size: TradeSize): number {
+  const id = RACEWAY_ID[type][size]
+  if (id === undefined) throw new Error(`no ${type} in ${size}`)
+  return (Math.PI / 4) * id * id
+}
+
+/** The Table 4 column value as printed: π/4 × ID² × percent, rounded to 3 decimals. */
+export function racewayArea(type: RacewayType, size: TradeSize, fill: FillCase): number {
+  return round3((racewayExactArea(type, size) * FILL_PCT[fill]) / 100)
+}
+
+/** The Table 4 total (100%) area as printed. */
+export function racewayTotal(type: RacewayType, size: TradeSize): number {
+  return round3(racewayExactArea(type, size))
+}
+
+/**
+ * Lookup tolerance for a Table 4 value: a printing may round the third decimal either way, so accept
+ * ±0.001 in² and keep generated problems away from edges where that could change the answer.
+ */
+export const TABLE4_TOL = { abs: 0.0011 }
+
 export function racewaySizes(type: RacewayType): TradeSize[] {
-  return TRADE_SIZES.filter((s) => RACEWAY_TOTAL_AREA[type][s] !== undefined)
+  return TRADE_SIZES.filter((s) => RACEWAY_ID[type][s] !== undefined)
 }
 
 /** "3/4 in." ("trade size 3/4"). */
@@ -211,7 +250,7 @@ export interface StandardBox {
   id: string
   /** "4 in. square × 1-1/2 in." */
   label: string
-  kind: 'round' | 'square' | 'device' | 'masonry'
+  kind: 'round' | 'square' | 'device'
   volume: number
 }
 
@@ -223,6 +262,9 @@ export const STANDARD_BOXES: StandardBox[] = [
   { id: 'dev-3x2x2.5', label: '3 × 2 × 2-1/2 in. device box', kind: 'device', volume: 12.5 },
   { id: 'dev-3x2x2.75', label: '3 × 2 × 2-3/4 in. device box', kind: 'device', volume: 14.0 },
   { id: 'dev-3x2x3.5', label: '3 × 2 × 3-1/2 in. device box', kind: 'device', volume: 18.0 },
+  { id: 'dev-4x2.125x1.5', label: '4 × 2-1/8 × 1-1/2 in. device box', kind: 'device', volume: 10.3 },
+  { id: 'dev-4x2.125x1.875', label: '4 × 2-1/8 × 1-7/8 in. device box', kind: 'device', volume: 13.0 },
+  { id: 'dev-4x2.125x2.125', label: '4 × 2-1/8 × 2-1/8 in. device box', kind: 'device', volume: 14.5 },
   { id: 'rnd-4x1.25', label: '4 in. round/octagonal × 1-1/4 in.', kind: 'round', volume: 12.5 },
   { id: 'rnd-4x1.5', label: '4 in. round/octagonal × 1-1/2 in.', kind: 'round', volume: 15.5 },
   { id: 'rnd-4x2.125', label: '4 in. round/octagonal × 2-1/8 in.', kind: 'round', volume: 21.5 },
@@ -307,6 +349,25 @@ export const MOTOR_OCPD_PCT: Record<OcpdType, number> = {
   'inverse-time-cb': 250,
 }
 
+/** The same table's other rows. Design B energy-efficient: instantaneous trip 1100%. Wound rotor: 150/150/800/150. */
+export const MOTOR_OCPD_PCT_DESIGN_B_EE: Record<OcpdType, number> = {
+  'nontime-fuse': 300, 'dual-element-fuse': 175, 'instantaneous-cb': 1100, 'inverse-time-cb': 250,
+}
+export const MOTOR_OCPD_PCT_WOUND_ROTOR: Record<OcpdType, number> = {
+  'nontime-fuse': 150, 'dual-element-fuse': 150, 'instantaneous-cb': 800, 'inverse-time-cb': 150,
+}
+
+/**
+ * 430.52(C)(1) Exception No. 2 ceilings, when the first value will not carry the starting current:
+ * nontime-delay fuse 400% (600 A and less), dual-element fuse 225%, inverse-time breaker 400% for FLC of
+ * 100 A or less and 300% above 100 A.
+ */
+export function motorOcpdCeilingPct(type: Exclude<OcpdType, 'instantaneous-cb'>, flc: number): number {
+  if (type === 'nontime-fuse') return 400
+  if (type === 'dual-element-fuse') return 225
+  return flc <= 100 ? 400 : 300
+}
+
 // ---------------------------------------------------------------------------------------------
 // Article 220 demand factors (values; locations in data/refs.ts)
 // ---------------------------------------------------------------------------------------------
@@ -346,8 +407,26 @@ export function rangeColumnC(n: number): number {
 export const RANGE_COL_A_PCT = [80, 75, 70, 66, 62, 59, 56, 53, 51, 49, 47, 45, 43, 41, 40, 39, 38, 37, 36, 35, 34, 33, 32, 31, 30]
 export const RANGE_COL_B_PCT = [80, 65, 55, 50, 45, 43, 40, 36, 35, 34, 32, 32, 32, 32, 32, 28, 28, 28, 28, 28, 26, 26, 26, 26, 26]
 
+/** Column A percent for any count (26 and over: 30%). */
+export function rangeColumnAPct(n: number): number {
+  if (n < 1) throw new Error('need at least one appliance')
+  return n <= 25 ? (RANGE_COL_A_PCT[n - 1] as number) : 30
+}
+
+/** Column B percent for any count (26-30: 24, 31-40: 22, 41-50: 20, 51-60: 18, 61 and over: 16). */
+export function rangeColumnBPct(n: number): number {
+  if (n < 1) throw new Error('need at least one appliance')
+  if (n <= 25) return RANGE_COL_B_PCT[n - 1] as number
+  if (n <= 30) return 24
+  if (n <= 40) return 22
+  if (n <= 50) return 20
+  if (n <= 60) return 18
+  return 16
+}
+
 /** Table 220.54: household dryer demand percent for N dryers. */
 export function dryerDemandPct(n: number): number {
+  if (n < 1) throw new Error('need at least one dryer')
   if (n <= 4) return 100
   const fixed: Record<number, number> = { 5: 85, 6: 75, 7: 65, 8: 60, 9: 55, 10: 50, 11: 47 }
   if (n <= 11) return fixed[n] as number
@@ -405,4 +484,12 @@ export function transformerPrimaryOnlyPct(primaryAmps: number): { pct: number; n
   if (primaryAmps >= 9) return { pct: 125, nextSizeUp: true }
   if (primaryAmps >= 2) return { pct: 167, nextSizeUp: false }
   return { pct: 300, nextSizeUp: false }
+}
+
+/**
+ * Primary and secondary protection: primary at most 250% (no rounding up); secondary 125% with the
+ * next size up at 9 A or more, else 167%.
+ */
+export function transformerPrimaryAndSecondaryPct(secondaryAmps: number): { primaryPct: number; secondary: { pct: number; nextSizeUp: boolean } } {
+  return { primaryPct: 250, secondary: secondaryAmps >= 9 ? { pct: 125, nextSizeUp: true } : { pct: 167, nextSizeUp: false } }
 }

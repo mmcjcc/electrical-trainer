@@ -168,6 +168,10 @@ export const MISTAKES = {
     title: 'Used the wrong K',
     lesson: 'K is 12.9 for copper and 21.2 for aluminum.',
   },
+  // ---- added by the wiring/motor recipes builder (append only, keep this comment) -------------------------
+
+  // ---- added by the load-calculation recipes builder (append only, keep this comment) ---------------------
+
   // ---- fallback ---------------------------------------------------------------------------------------
   unknown: {
     title: 'Other slip',

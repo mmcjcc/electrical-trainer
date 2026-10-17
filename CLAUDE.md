@@ -32,7 +32,12 @@ npm run dev                                        # http://localhost:5174
 - `src/calc/`: the worksheet engine. `index.ts` is its API: builders `given/lookup/calc/sum/choose`,
   `checkLine/checkChoice`, `numericChoices/labelChoices`, rounding rules, `makeRng`, the mistake catalog.
 - `src/content/`: recipes (`recipes/<family>/`), the question bank (`bank/<topic>.ts`), `blueprint.ts`,
-  `exam.ts`. `content/index.ts` is the UI's only entry.
+  `exam.ts`, `drills/`. The UI imports content only through `@/content`, plus `@/calc`, `@/store`,
+  `@/data/necIndex` and `@/shared/types`.
+- `src/store/`: the progress store (ARCHITECT). Pages call its actions; UI builders may add pure selector
+  files next to `selectors.ts` (`selectors.facts.ts`, `selectors.math.ts`) with tests.
+- UI: `src/App.tsx` (routes, ARCHITECT), `src/components/shell/Frame.tsx`, `src/components/ui/*` (shared:
+  `BookHint`, `Toasts`), pages under `src/pages/`.
 
 ## Rules
 

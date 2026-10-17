@@ -10,7 +10,7 @@ import {
   calc, choose, conductorsThatFit, fmt, lookup, makeRng, numericChoices, type WrongValue,
 } from '@/calc'
 import {
-  AWG_SIZES, conductorArea, CONDUCTOR_AREA, FILL_PCT, RACEWAY_NAME, racewayArea, racewaySizes,
+  AWG_SIZES, conductorArea, CONDUCTOR_AREA, FILL_PCT, RACEWAY_NAME, racewayArea, racewaySizes, racewayTotal, TABLE4_TOL,
   sizeLabel, tradeLabel, type ConductorSize, type FillCase, type Insulation, type RacewayType, type TradeSize,
 } from '@/data/tables'
 import { REF } from '@/data/refs'
@@ -57,8 +57,12 @@ function pick(seed: number): Pick {
     if (CONDUCTOR_AREA[ins][size] === undefined) continue
     const trade = rng.pick(racewaySizes(raceway))
     const nipple = rng.chance(0.15)
-    const n = conductorsThatFit(racewayArea(raceway, trade, nipple ? 'nipple' : 'over2'), conductorArea(ins, size))
-    if (n >= 3 && n <= 40) return { raceway, trade, ins, size, nipple }
+    const area = racewayArea(raceway, trade, nipple ? 'nipple' : 'over2')
+    const wire = conductorArea(ins, size)
+    const n = conductorsThatFit(area, wire)
+    // Stay away from edges where a book printing the third decimal the other way changes the answer.
+    const stable = conductorsThatFit(area - 0.001, wire) === n && conductorsThatFit(area + 0.001, wire) === n
+    if (n >= 3 && n <= 40 && stable) return { raceway, trade, ins, size, nipple }
   }
   return { raceway: 'EMT', trade: '3/4', ins: 'THHN', size: '12', nipple: false }
 }
@@ -82,8 +86,7 @@ function generate(seed: number): ProblemInstance {
     `All conductors are the same size.`
 
   // ---- the wrong values, each from a real mistake ---------------------------------------------------
-  const total = racewayArea(raceway, trade, 'one') / 0.53 // the 100% column, recomputed from the table
-  const total100 = Math.round(total * 1000) / 1000
+  const total100 = racewayTotal(raceway, trade)
   const at40 = racewayArea(raceway, trade, 'over2')
   const otherIns: Insulation = ins === 'THHN' ? 'THW' : 'THHN'
   const otherWire = CONDUCTOR_AREA[otherIns][size]
@@ -143,6 +146,7 @@ function generate(seed: number): ProblemInstance {
       ref: REF.ch9Table4,
       value: allowed,
       unit: 'in2',
+      tol: TABLE4_TOL,
       mistakes: areaMistakes,
       sanity: `A ${tradeText} pipe gives you well under one square inch until you get past 1-1/4 in.`,
     }),

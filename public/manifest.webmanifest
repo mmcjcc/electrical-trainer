@@ -1,0 +1,12 @@
+{
+  "name": "Master Electrician Prep (Maryland)",
+  "short_name": "Electrician Prep",
+  "description": "Maryland Master Electrician exam practice: code questions with book hints, and load calculations walked through step by step.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#ffffff",
+  "theme_color": "#1B2333",
+  "icons": [{ "src": "favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }]
+}

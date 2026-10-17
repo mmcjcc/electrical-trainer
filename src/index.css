@@ -1,0 +1,63 @@
+@import "tailwindcss";
+
+/*
+ * Palette tokens ("panel schedule": slate ink, copper, safety yellow). Contrast on white:
+ *  - ink #1B2333 15.6:1, slate #2E3A55 11.0:1: any text.
+ *  - copper #B4652A is 3.6:1: fills, borders, large text only. Text in copper uses copper-700 #8A4615 (6.3:1).
+ *  - safety #FFC20E is a fill only (1.6:1). Text on safety: ink.
+ *  - ok #0F7A3E (5.4:1), bad #B42318 (6.4:1) for words; their -100 tints for backgrounds.
+ * Color is never the only signal: pair with an icon (aria-hidden) and words.
+ * The study screen must be readable outdoors on a phone: high contrast, 16px minimum body text.
+ */
+@theme {
+  --color-ink: #1B2333;
+  --color-slate: #2E3A55;
+  --color-slate-600: #3D4B6B;
+  --color-slate-100: #E6E9F0;
+  --color-slate-50: #F4F6F9;
+  --color-copper: #B4652A;
+  --color-copper-700: #8A4615;
+  --color-copper-100: #F8E9DD;
+  --color-safety: #FFC20E;
+  --color-safety-100: #FFF4D1;
+  --color-ok: #0F7A3E;
+  --color-ok-100: #E2F3EA;
+  --color-bad: #B42318;
+  --color-bad-100: #FBE6E3;
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+}
+
+html { height: 100%; -webkit-text-size-adjust: 100%; }
+body { min-height: 100%; background: #fff; color: var(--color-ink); overflow-wrap: anywhere; font-size: 16px; }
+#root { min-height: 100dvh; display: flex; flex-direction: column; }
+
+/* iOS zooms on focus when an input is under 16px. */
+input, textarea, select, button { font: inherit; }
+input[type="text"], input[type="number"], input:not([type]), textarea { font-size: max(16px, 1rem); }
+
+:focus-visible { outline: 3px solid var(--color-safety); outline-offset: 2px; box-shadow: 0 0 0 1px var(--color-ink); }
+
+/* Calculator keycaps (the on-screen calculator's keys in a keystroke strip). */
+kbd.keycap {
+  display: inline-block;
+  min-width: 2rem;
+  padding: 0.15rem 0.5rem;
+  border: 1px solid var(--color-slate-100);
+  border-bottom-width: 3px;
+  border-radius: 0.4rem;
+  background: #fff;
+  color: var(--color-ink);
+  font-family: var(--font-mono);
+  font-size: 0.95rem;
+  line-height: 1.4;
+  text-align: center;
+  white-space: nowrap;
+}
+
+/* Numbers line up in worksheets. */
+.tabular { font-variant-numeric: tabular-nums; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
+}
