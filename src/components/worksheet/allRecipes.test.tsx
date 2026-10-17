@@ -26,6 +26,7 @@ describe.each(listRecipes().map((r) => [r.id, r] as const))('%s on the worksheet
         if (last.t === 'recipe' && mode === 'test') expect(last.pickedCorrect).toBe(true)
         cleanup()
       }
-    })
+      // A full dwelling calculation is ~30 lines; five seeds through jsdom can pass 20 s on a cold run.
+    }, 90_000)
   }
 })

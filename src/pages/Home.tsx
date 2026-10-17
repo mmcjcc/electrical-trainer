@@ -4,7 +4,7 @@
  */
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { allQuestions, EXAM, FAMILY_ORDER, recipesByFamily, TOPICS } from '@/content'
+import { allQuestions, EXAM, listRecipes, TOPICS } from '@/content'
 import { card, link, MODE_LABEL, PctBadge, TOPIC_SHORT } from '@/components/question/ui'
 import { daysToExam, streakDays, useStore } from '@/store'
 import { readiness, todayPlan, type TodayStep } from '@/store/selectors.facts'
@@ -15,7 +15,8 @@ export default function Home() {
   const settings = useStore((s) => s.settings)
   const examInProgress = useStore((s) => s.exam !== null)
   const [now] = useState(() => Date.now())
-  const recipes = useMemo(() => FAMILY_ORDER.flatMap((f) => recipesByFamily(f)), [])
+  // The learning path order (content/recipes RECIPE_PATH): Ohm's law first, then the dwelling calc built up.
+  const recipes = useMemo(() => listRecipes(), [])
   const questions = useMemo(() => allQuestions(settings.edition), [settings.edition])
   const plan = useMemo(() => todayPlan({ events, leitner, now, questions, topics: TOPICS, recipes }), [events, leitner, questions, recipes, now])
   const ready = useMemo(() => readiness(events, TOPICS, recipes), [events, recipes])

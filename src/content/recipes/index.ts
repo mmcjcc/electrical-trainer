@@ -6,6 +6,8 @@ import type { Recipe, RecipeFamily } from '@/shared/types'
 import { AMPACITY_RECIPES } from './ampacity'
 import { BASICS_RECIPES } from './basics'
 import { BOX_RECIPES } from './box'
+import { COMMERCIAL_RECIPES } from './commercial'
+import { DWELLING_RECIPES } from './dwelling'
 import { MOTOR_RECIPES } from './motor'
 import { RACEWAY_RECIPES } from './raceway'
 import { TRANSFORMER_RECIPES } from './transformer'
@@ -29,7 +31,7 @@ export const FAMILY_ORDER: RecipeFamily[] = [
 ]
 
 const RECIPES: Recipe[] = [
-  ...RACEWAY_RECIPES, ...BOX_RECIPES, ...AMPACITY_RECIPES, ...VDROP_RECIPES, ...MOTOR_RECIPES,
+  ...DWELLING_RECIPES, ...COMMERCIAL_RECIPES, ...RACEWAY_RECIPES, ...BOX_RECIPES, ...AMPACITY_RECIPES, ...VDROP_RECIPES, ...MOTOR_RECIPES,
   ...TRANSFORMER_RECIPES, ...BASICS_RECIPES,
 ]
 
