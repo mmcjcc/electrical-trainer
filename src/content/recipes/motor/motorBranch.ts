@@ -222,7 +222,7 @@ export function buildMotorBranch(p: MotorParams, seed: number): ProblemInstance 
     section: S_SC, checkpoint: true,
   }))
   lines.push(lookup({
-    id: 'ocpd', label: `Largest standard ${dev}`,
+    id: 'ocpd', label: `Maximum ${dev} rating`,
     say: `In the 240.6(A) list, the smallest standard size at or above ${fmt(sc)} A.`,
     ref: REF.standardOcpd,
     value: ocpd, unit: 'A',
@@ -294,6 +294,14 @@ export function buildMotorBranch(p: MotorParams, seed: number): ProblemInstance 
   if (ask === 'conductor') {
     const wrongs: WrongLabel[] = []
     const add = (s: ConductorSize | undefined, mistake: string, why: string) => { if (s && s !== wire) wrongs.push({ label: sizeLabel(s), mistake, why }) }
+    if (smallCase) {
+      // The classic slip on small motors: applying the 15/20/30 A small-wire limits to a motor circuit.
+      const bumped = AWG_SIZES.slice(wi).find((x) => {
+        const lim = SMALL_CONDUCTOR_MAX_OCPD_CU[x]
+        return lim === undefined || lim >= ocpd
+      })
+      add(bumped, 'small_conductor_motor', `Applied the 240.4(D) small-wire limit. Motor circuits follow Article 430 instead (240.4(G)), so ${sizeLabel(wire)} is fine on the ${ocpd} A device.`)
+    }
     add(wireFor(flc), 'motor_wrong_percent', 'Sized for the FLC without the 125%.')
     add(wireFor(fla * 1.25), 'motor_nameplate_vs_table', 'Used the nameplate current instead of the table FLC.')
     add(AWG_SIZES.find((x) => ampacity('cu', x, 90) >= cond - 1e-9), 'wrong_temp_column', 'Read the 90 °C column; the terminals are 75 °C.')

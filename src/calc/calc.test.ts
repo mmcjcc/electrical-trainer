@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
-  calc, checkChoice, checkLine, choose, conductorsThatFit, fmt, fmtUnit, given, lookup, makeRng, nextStandardUp,
+  calc, checkChoice, checkLine, choose, conductorsThatFit, fmt, fmtUnit, fuseAtOrBelow, given, lookup, makeRng, nextStandardUp, STANDARD_FUSES,
   numericChoices, labelChoices, parseNumberInput, roundAmps220, standardAtOrBelow, sum,
 } from '.'
 
@@ -29,6 +29,20 @@ describe('numbers', () => {
     expect(parseNumberInput('72,00').ok).toBe(false)
     expect(parseNumberInput('abc').ok).toBe(false)
     expect(parseNumberInput('2400 3').ok).toBe(false)
+    // Review 2026-10-16: phone input
+    expect(parseNumberInput('½')).toEqual({ ok: true, value: 0.5 })
+    expect(parseNumberInput('1½')).toEqual({ ok: true, value: 1.5 })
+    expect(parseNumberInput('+5')).toEqual({ ok: true, value: 5 })
+    expect(parseNumberInput('5.')).toEqual({ ok: true, value: 5 })
+    expect(parseNumberInput('2400 ft2')).toEqual({ ok: true, value: 2400 })
+    expect(parseNumberInput('1-1/4 in.')).toEqual({ ok: true, value: 1.25 })
+    expect(parseNumberInput('21 in³')).toEqual({ ok: true, value: 21 })
+    expect(parseNumberInput('5...').ok).toBe(false)
+    const sum = parseNumberInput('7200/240')
+    expect(sum.ok).toBe(false)
+    if (!sum.ok) expect(sum.reason).toContain('calculator')
+    const comma = parseNumberInput('1,5')
+    expect(!comma.ok && comma.reason).toContain('period')
   })
 })
 
@@ -70,10 +84,37 @@ describe('checkLine', () => {
     const mult = checkLine(amps, '4464000')
     expect(!mult.ok && mult.mistake).toBe('inverse_op')
   })
-  it('catches √3 slips', () => {
+  it('catches √3 slips without guessing the direction, only on electrical calc lines', () => {
     const amps = calc({ id: 'a', label: 'Amps', say: 'VA ÷ volts', a: 18600, op: '÷', b: 240, unit: 'A' })
     const v = checkLine(amps, String(77.5 / 1.732))
-    expect(!v.ok && v.mistake).toBe('sqrt3_extra')
+    expect(!v.ok && v.mistake).toBe('sqrt3_slip')
+    expect(!v.ok && v.message).toContain('too small')
+    const area = lookup({ id: 'x', label: 'Area', say: 'Find it', value: 20, unit: 'in2', ref: { book: 'NEC', loc: 'Table 4' } })
+    const w = checkLine(area, String(20 * 1.732))
+    expect(!w.ok && w.mistake).not.toBe('sqrt3_slip')
+  })
+  it('percent typed whole: only on percent lines, never for a whole-number multiplier', () => {
+    const gl = calc({ id: 'gl', label: 'General lighting', say: 'Multiply the area by 3 VA', a: 2400, op: '×', b: 3, unit: 'VA' })
+    const v = checkLine(gl, '720000')
+    expect(!v.ok && v.mistake).toBe('decimal_slip')
+  })
+  it('zero operands never match everything', () => {
+    const z = calc({ id: 'z', label: 'Nothing', say: 'Multiply', a: 0, op: '×', b: 1500, unit: 'VA' })
+    const v = checkLine(z, '500')
+    expect(!v.ok && v.mistake).toBe('unknown')
+  })
+  it('counts are exact by default', () => {
+    const c = sum({ id: 'c', label: 'Conductors', say: 'Add', parts: [150, 50], unit: 'count' })
+    expect(checkLine(c, '200').ok).toBe(true)
+    expect(checkLine(c, '201').ok).toBe(false)
+    expect(checkLine(c, '200.4').ok).toBe(false)
+  })
+  it('a rounded amperes line also accepts the exact result', () => {
+    const amps = calc({ id: 'a', label: 'Amps', say: 'VA ÷ 240, rounded', a: 10000, op: '÷', b: 240, unit: 'A', round: Math.round })
+    expect(amps.value).toBe(42)
+    expect(checkLine(amps, '42').ok).toBe(true)
+    expect(checkLine(amps, '41.67').ok).toBe(true)
+    expect(checkLine(amps, '45').ok).toBe(false)
   })
   it('prefers the line’s own mistakes', () => {
     const amps = calc({
@@ -82,6 +123,19 @@ describe('checkLine', () => {
     })
     const v = checkLine(amps, '155')
     expect(!v.ok && v.mistake).toBe('wrong_voltage')
+  })
+  it('names every known slip that lands on the same number', () => {
+    const count = calc({
+      id: 'n', label: 'Conductors', say: 'Count them', a: 2, op: '+', b: 1, unit: 'count', tol: { abs: 0 },
+      mistakes: [
+        { value: 4, mistake: 'box_loop_once', message: 'A wire passing straight through counts once.' },
+        { value: 4, mistake: 'box_pigtail_counted', message: 'A pigtail does not count.' },
+      ],
+    })
+    const v = checkLine(count, '4')
+    expect(!v.ok && v.mistake).toBe('box_loop_once')
+    expect(!v.ok && v.message).toContain('passing straight through')
+    expect(!v.ok && v.message).toContain('pigtail')
   })
   it('says close enough for a rounded intermediate', () => {
     const v = calc({ id: 'x', label: 'x', say: 'x', a: 208, op: '×', b: 1.732, unit: 'V' })
@@ -125,6 +179,11 @@ describe('rounding rules', () => {
     expect(nextStandardUp(101)).toBe(110)
     expect(standardAtOrBelow(117)).toBe(110)
   })
+  it('standard fuse ratings include 1, 3, 6, 10 and 601 A', () => {
+    expect(fuseAtOrBelow(8.35)).toBe(6)
+    expect(fuseAtOrBelow(10.04)).toBe(10)
+    expect(STANDARD_FUSES).toContain(601)
+  })
   it('220.5(B)', () => {
     expect(roundAmps220(77.4)).toBe(77)
     expect(roundAmps220(77.5)).toBe(78)
@@ -151,6 +210,19 @@ describe('choices', () => {
     expect(new Set(c.map((x) => x.label)).size).toBe(4)
     const nums = c.map((x) => Number(x.label.replace(/[^\d.]/g, '')))
     expect([...nums].sort((a, b) => a - b)).toEqual(nums)
+  })
+  it('small answers still get four options, and the right one prints like the worksheet', () => {
+    for (const n of [1, 2, 3]) {
+      const c = numericChoices(n, [], makeRng(n), { unit: 'count' })
+      expect(c).toHaveLength(4)
+      expect(new Set(c.map((x) => x.label)).size).toBe(4)
+    }
+    const amps = numericChoices(77.25, [{ value: 154.5, mistake: 'wrong_voltage', why: '120 V' }], makeRng(2), { unit: 'A' })
+    expect(amps.find((x) => x.correct)?.label).toBe('77.25 A')
+    expect(numericChoices(0.5, [], makeRng(3), { unit: 'ohm' })).toHaveLength(4)
+  })
+  it('label options refuse a right answer that is not in the order', () => {
+    expect(() => labelChoices('1/2"', [], ['1/2', '3/4', '1', '1-1/4'])).toThrow()
   })
   it('label options keep the canonical order', () => {
     const order = ['1/2', '3/4', '1', '1-1/4', '1-1/2', '2']

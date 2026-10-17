@@ -2,8 +2,8 @@
  * Routes and the frame (header on desktop, bottom tab bar on phones). ARCHITECT owns the route table;
  * the UI builders own the pages. HashRouter: the app is a static site behind the platform's sign-in.
  */
-import { lazy, Suspense, type ReactNode } from 'react'
-import { HashRouter, Navigate, Route, Routes } from 'react-router-dom'
+import { lazy, Suspense, useEffect, type ReactNode } from 'react'
+import { HashRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { Toasts } from '@/components/ui/Toasts'
 import { Frame } from '@/components/shell/Frame'
 
@@ -59,10 +59,22 @@ export function AppRoutes(): ReactNode {
   )
 }
 
+/** A new page starts at the top (a phone otherwise keeps the old page's scroll position). */
+function ScrollToTop() {
+  const { pathname } = useLocation()
+  useEffect(() => {
+    // scrollTop rather than window.scrollTo: the same effect, and jsdom (tests) implements it.
+    const el = document.scrollingElement ?? document.documentElement
+    el.scrollTop = 0
+  }, [pathname])
+  return null
+}
+
 /** Everything inside the router. Tests mount this in a MemoryRouter. */
 export function AppShell() {
   return (
     <>
+      <ScrollToTop />
       <Frame>
         <AppRoutes />
       </Frame>

@@ -45,6 +45,10 @@ export const MISTAKES = {
     title: 'Left out 1.732 on three-phase',
     lesson: 'Three-phase: Amps = VA ÷ (volts × 1.732). Multiply the volts by 1.732 first, then divide.',
   },
+  sqrt3_slip: {
+    title: '1.732 in the wrong place',
+    lesson: 'Three-phase: Amps = VA ÷ (volts × 1.732). Single-phase never uses 1.732. Say which system it is before you start.',
+  },
   wrong_voltage: {
     title: 'Used the wrong voltage',
     lesson: 'Use the system voltage the question gives (a dwelling service is 240 V; 208 V and 480 V are three-phase systems).',

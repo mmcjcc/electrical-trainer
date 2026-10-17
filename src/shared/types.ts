@@ -181,6 +181,11 @@ export interface WorkLine {
   /** Known wrong values (most specific feedback first). */
   mistakes?: MistakeValue[]
   /**
+   * Other values that are also right (within half a percent), e.g. the exact amperes of a line whose
+   * value is rounded per 220.5(B). Checked after `value` and its tolerance.
+   */
+  accept?: number[]
+  /**
    * The operands of a calc line, so the generic detectors can recognise an inverted operation or a
    * percent typed as a whole number. `op` is the one operation the line asks for.
    */

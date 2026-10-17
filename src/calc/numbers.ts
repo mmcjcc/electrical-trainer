@@ -54,33 +54,46 @@ export type ParsedNumber = { ok: true; value: number } | { ok: false; reason: st
  * Reads a typed number. Accepts "7,200", "7200 VA", "77.5A", "$1,200", " 16 ", "1/2", "-3", "1.25x",
  * "35%" (read as 35; the line decides what a percent means). Rejects empty input and two numbers.
  */
+const VULGAR: Record<string, string> = { '½': ' 1/2', '¼': ' 1/4', '¾': ' 3/4', '⅛': ' 1/8', '⅜': ' 3/8', '⅝': ' 5/8', '⅞': ' 7/8', '⅓': ' 1/3', '⅔': ' 2/3' }
+
+/** Unit words and symbols he may type after the number (longest first). */
+const UNIT_SUFFIX = /\s*(kcmil|cmil|awg|kva|kw|va|ft2|ft²|sq\.?\s*ft|in2|in²|in3|in³|cu\.?\s*in|ohms?|hp|amps?|volts?|watts?|a|v|w|ft|in|%|°c|°f|c|f|"|')\.?\s*$/i
+
 export function parseNumberInput(raw: string): ParsedNumber {
-  const text = raw.trim().replace(/[−–]/g, '-')
+  let text = raw.trim().replace(/[−–]/g, '-').replace(/^\+/, '')
+  text = text.replace(/[½¼¾⅛⅜⅝⅞⅓⅔]/g, (c) => VULGAR[c] ?? c).trim()
   if (!text) return { ok: false, reason: 'Type a number first.' }
-  // Simple fraction "1/2", "3/4" (trade sizes, fractions of an inch).
-  const frac = /^(-?\d+)\s*\/\s*(\d+)$/.exec(text)
+  // Unit words go, then one stray trailing period ("2.5 in." -> "2.5"); "5..." stays unreadable.
+  const stripped = (text.replace(UNIT_SUFFIX, '').trim() || text).replace(/(\d)\.$/, '$1')
+  // Simple fraction "1/2", "3/4" (trade sizes, fractions of an inch). A big division ("7200/240") is
+  // a sum to work, not an answer.
+  const frac = /^(-?\d+)\s*\/\s*(\d+)$/.exec(stripped)
   if (frac) {
+    const n = Number(frac[1])
     const d = Number(frac[2])
     if (d === 0) return { ok: false, reason: 'A fraction cannot have 0 on the bottom.' }
-    return { ok: true, value: Number(frac[1]) / d }
+    if (d > 64 || Math.abs(n) > 10 * d) return { ok: false, reason: 'Type the result, not the sum: work it on the calculator first.' }
+    return { ok: true, value: n / d }
   }
   // Mixed number "1-1/4" or "1 1/4" (trade sizes).
-  const mixed = /^(\d+)(?:\s+|-)(\d+)\s*\/\s*(\d+)$/.exec(text)
+  const mixed = /^(-?)(\d+)(?:\s+|-)(\d+)\s*\/\s*(\d+)$/.exec(stripped)
   if (mixed) {
-    const d = Number(mixed[3])
+    const d = Number(mixed[4])
     if (d === 0) return { ok: false, reason: 'A fraction cannot have 0 on the bottom.' }
-    return { ok: true, value: Number(mixed[1]) + Number(mixed[2]) / d }
+    if (d > 64) return { ok: false, reason: 'That does not read as a number. Type digits like 7200 or 77.5.' }
+    const v = Number(mixed[2]) + Number(mixed[3]) / d
+    return { ok: true, value: mixed[1] === '-' ? -v : v }
   }
-  // Strip a leading $ and any trailing unit words or symbols; keep digits, commas, one dot, a sign.
-  const m = /^\$?\s*(-?[\d,]*\.?\d+)\s*[a-zA-Z%²³°Ω .]*$/.exec(text)
+  // A leading $ and the number: digits, commas, one dot (a trailing dot is fine: "5.").
+  const m = /^\$?\s*(-?[\d,]*\.?\d+)$/.exec(stripped)
   if (!m || !m[1]) {
-    if (/\d.*\s+.*\d/.test(text)) return { ok: false, reason: 'Type just one number (the result of this line).' }
+    if (/\d.*\s+.*\d/.test(stripped)) return { ok: false, reason: 'Type just one number (the result of this line).' }
     return { ok: false, reason: 'That does not read as a number. Type digits like 7200 or 77.5.' }
   }
   const digits = m[1]
-  // Commas must be thousands separators: "7,200" yes, "72,00" no.
+  // Commas must be thousands separators: "7,200" yes, "72,00" no ("1,5" was probably 1.5).
   if (digits.includes(',') && !/^-?\d{1,3}(,\d{3})*(\.\d+)?$/.test(digits)) {
-    return { ok: false, reason: 'Commas go every three digits (7,200). Or leave them out (7200).' }
+    return { ok: false, reason: 'Use a period for decimals (1.5), and commas only every three digits (7,200).' }
   }
   const value = Number(digits.replace(/,/g, ''))
   if (!Number.isFinite(value)) return { ok: false, reason: 'That number is too large to read.' }
@@ -93,6 +106,7 @@ export function parseNumberInput(raw: string): ParsedNumber {
  * of Chapter 9, Table 5).
  */
 export function within(got: number, want: number, tol?: { abs?: number; rel?: number }): boolean {
+  if (!Number.isFinite(got) || !Number.isFinite(want)) return false
   if (tol?.abs !== undefined) return Math.abs(got - want) <= tol.abs + 1e-9
   const rel = tol?.rel ?? 0.005
   return Math.abs(got - want) <= Math.abs(want) * rel + 1e-9

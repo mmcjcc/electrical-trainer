@@ -79,6 +79,8 @@ export function calc(p: Common & { a: number; op: '×' | '÷' | '+' | '−'; b: 
     keys: [keyNum(p.a), p.op, keyNum(p.b), '='],
     operands: { a: p.a, b: p.b, op: p.op },
     mistakes: p.mistakes, tol: p.tol, sanity: p.sanity, ...extras(p),
+    // A line that rounds (220.5(B)) also accepts the exact result, unless it is a count or sets its own tolerance.
+    ...(p.round && p.unit !== 'count' && p.tol === undefined && Math.abs(raw - value) > 1e-9 ? { accept: [raw] } : {}),
   }
 }
 

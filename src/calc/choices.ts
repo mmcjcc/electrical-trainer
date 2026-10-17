@@ -26,9 +26,15 @@ function defaultDecimals(unit: Unit): number {
     case 'A': return 1
     case 'in2': return 4
     case 'pct': case 'V': return 1
-    case 'ft': case 'in3': return 2
+    case 'ft': case 'in3': case 'kVA': case 'kW': case 'ohm': case 'factor': return 2
     default: return 0
   }
+}
+
+/** Decimals a value needs to print exactly (up to 4), so the right option reads like the worksheet. */
+function decimalsOf(v: number): number {
+  for (let d = 0; d < 4; d++) if (Math.abs(Number(v.toFixed(d)) - v) < 1e-9) return d
+  return 4
 }
 
 /**
@@ -36,13 +42,13 @@ function defaultDecimals(unit: Unit): number {
  * near the answer when the mistakes run out (labelled as plain slips). Labels never repeat.
  */
 export function numericChoices(correct: number, wrongs: WrongValue[], rng: Rng, opts: ChoiceOptions): AnswerChoice[] {
-  const decimals = opts.decimals ?? defaultDecimals(opts.unit)
+  const decimals = opts.decimals ?? Math.max(defaultDecimals(opts.unit), decimalsOf(correct))
   const label = opts.label ?? ((v: number) => fmtUnit(v, opts.unit, decimals))
   const out: (AnswerChoice & { v: number })[] = [{ label: label(correct), correct: true, v: correct }]
   const seen = new Set([out[0]!.label])
   for (const w of wrongs) {
     if (out.length === 4) break
-    if (!Number.isFinite(w.value) || w.value <= 0) continue
+    if (!Number.isFinite(w.value) || w.value < 0) continue
     const l = label(w.value)
     if (seen.has(l)) continue
     seen.add(l)
@@ -56,7 +62,19 @@ export function numericChoices(correct: number, wrongs: WrongValue[], rng: Rng, 
     const l = label(v)
     if (seen.has(l) || v <= 0) continue
     seen.add(l)
-    out.push({ label: l, correct: false, mistake: 'unknown', why: 'This one does not come from a common mistake; recheck the worksheet.', v })
+    out.push({ label: l, correct: false, mistake: 'unknown', why: 'No common slip leads to this one; the worked answer below shows the right path.', v })
+  }
+  // Small answers (1 or 2 conductors, 0.5 Ω) have too few distinct spreads: step away from the answer.
+  const step = 10 ** -decimals
+  for (let k = 1; k <= 8 && out.length < 4; k++) {
+    for (const v of [correct + k * step, correct - k * step]) {
+      if (out.length === 4) break
+      const r = Number(v.toFixed(decimals))
+      const l = label(r)
+      if (seen.has(l) || r < 0) continue
+      seen.add(l)
+      out.push({ label: l, correct: false, mistake: 'unknown', why: 'No common slip leads to this one; the worked answer below shows the right path.', v: r })
+    }
   }
   if (out.length < 4) throw new Error(`could not build four distinct options around ${correct}`)
   return out.sort((x, y) => x.v - y.v).map(({ v: _v, ...c }) => c)
@@ -83,14 +101,15 @@ export function labelChoices(correct: string, wrongs: WrongLabel[], order: reado
     picked.push({ label: w.label, correct: false, mistake: w.mistake, why: w.why })
   }
   const idx = order.indexOf(correct)
-  const neighbours = [idx + 1, idx - 1, idx + 2, idx - 2, idx + 3, idx - 3]
+  if (idx === -1) throw new Error(`labelChoices: the right answer ${correct} is not in the option order`)
+  const neighbours = order.map((_, k) => k).filter((k) => k > 0).flatMap((k) => [idx + k, idx - k])
     .filter((i) => i >= 0 && i < order.length)
     .map((i) => order[i] as string)
   for (const n of neighbours) {
     if (picked.length === 4) break
     if (seen.has(n)) continue
     seen.add(n)
-    picked.push({ label: n, correct: false, mistake: 'unknown', why: 'Not a common mistake; recheck the worksheet.' })
+    picked.push({ label: n, correct: false, mistake: 'unknown', why: 'No common slip leads to this one; the worked answer below shows the right path.' })
   }
   if (picked.length < 4) throw new Error(`could not build four options around ${correct}`)
   const pos = (l: string) => {
