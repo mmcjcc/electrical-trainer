@@ -11,7 +11,7 @@
  * Keystrokes are basic-calculator keys only (digits, ., ×, ÷, +, −, =): the PSI exam gives an
  * on-screen basic calculator. Pure.
  */
-import { fmt, fmtUnit, keyNum } from '@/calc'
+import { fmt, fmtUnit, keyNum, standardAbove, standardBelow } from '@/calc'
 import type { CodeRef, LineOption, MistakeValue, Unit, WorkLine } from '@/shared/types'
 
 type Tol = { abs?: number; rel?: number }
@@ -106,7 +106,8 @@ export function cleanMistakes(value: number, tol: Tol | undefined, list: (Mistak
       : Math.abs(m.value - value) > Math.abs(value) * 2 * Math.max(tol?.rel ?? 0.005, 0.01) + 1e-9
     if (!clearOfRight) continue
     if (kept.some((k) => nearFor(m.value, k.value, tol) || nearFor(k.value, m.value, tol))) continue
-    kept.push(m)
+    // Round away float noise (0.0506999999) so a checkpoint can print the value as he would write it.
+    kept.push({ ...m, value: Number(m.value.toPrecision(10)) })
   }
   return kept
 }
@@ -124,4 +125,42 @@ export function opt(id: string, label: string, feedback?: string, mistake?: stri
 /** Inches as printed in stories and answers: "24 in.", "22.5 in.". */
 export function inches(v: number): string {
   return `${fmt(v, 2)} in.`
+}
+
+const WORDS = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve']
+
+/** Small counts as words, the way a story reads ("two circuits"); 13 and up stay digits. */
+export function word(n: number): string {
+  return WORDS[n] ?? String(n)
+}
+
+/**
+ * Wrong options for a breaker or fuse question that are still real standard sizes (240.6(A)), so the
+ * four options never include a size nobody sells. Used after the mistake-based wrong values.
+ */
+export function standardNeighbours(ocpd: number, why: { below: string; above: string }): { value: number; mistake: string; why: string }[] {
+  const out: { value: number; mistake: string; why: string }[] = []
+  const a1 = standardAbove(ocpd)
+  const a2 = a1 !== undefined ? standardAbove(a1) : undefined
+  const b1 = standardBelow(ocpd)
+  const b2 = b1 !== undefined ? standardBelow(b1) : undefined
+  for (const v of [a1, b1, a2, b2]) {
+    if (v === undefined) continue
+    out.push({ value: v, mistake: 'unknown', why: v > ocpd ? why.above : why.below })
+  }
+  return out
+}
+
+/**
+ * Puts the lines into two buckets: everything up to and including `lastOfFirst`, then the rest.
+ * Returns the two sections (for ProblemInstance.sections); the lines are tagged in place.
+ */
+export function twoSections(
+  lines: WorkLine[], lastOfFirst: string,
+  first: { id: string; label: string; letter: string }, second: { id: string; label: string; letter: string; totalLine: string },
+): { id: string; label: string; totalLine: string; letter: string }[] {
+  const cut = lines.findIndex((l) => l.id === lastOfFirst)
+  if (cut < 0 || cut === lines.length - 1) throw new Error(`twoSections: ${lastOfFirst} must be a line before the last`)
+  lines.forEach((l, i) => { l.section = i <= cut ? first.id : second.id })
+  return [{ ...first, totalLine: lastOfFirst }, second]
 }

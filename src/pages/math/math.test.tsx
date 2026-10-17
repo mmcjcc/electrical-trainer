@@ -41,9 +41,12 @@ afterEach(() => {
 describe('Math home', () => {
   it('lists every registered recipe with its stage, the drills and the strategy page', () => {
     renderAt('/math')
+    const links = screen.getAllByRole('link')
     for (const r of listRecipes()) {
-      const link = screen.getByRole('link', { name: new RegExp(r.title) })
-      expect(link).toHaveAttribute('href', `/math/r/${r.id}`)
+      // Titles overlap ("Voltage drop" / "Voltage drop: the smallest wire"), so find the card by its target.
+      const link = links.find((l) => l.getAttribute('href') === `/math/r/${r.id}`)
+      if (!link) throw new Error(`no card for ${r.id}`)
+      expect(link.textContent).toContain(r.title)
       expect(within(link).getByText(/Next: Show me/)).toBeInTheDocument()
       expect(within(link).getByText('Not started')).toBeInTheDocument()
     }

@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { listRecipes } from '@/content'
 import { fireEvent, render, screen, within } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -50,7 +51,8 @@ describe('shell screens', () => {
     expect(steps[0]?.textContent).toMatch(/Review 1 due question/)
     // Wiring at 0% stands to gain 14 points; untried Theory counts as 50% of 20 = 10.
     expect(steps[1]?.getAttribute('href')).toBe('/facts/practice/wiring-protection')
-    expect(steps[2]?.getAttribute('href')).toBe('/math/r/raceway-same-size')
+    // A fresh learner is offered the first recipe of the learning path.
+    expect(steps[2]?.getAttribute('href')).toBe(`/math/r/${listRecipes()[0]!.id}`)
     expect(screen.getByRole('list', { name: 'Recent accuracy by exam area' }).textContent).toMatch(/Wiring & protection.*0%/)
     // The frame shows the edition and marks the current tab.
     expect(screen.getByText('MD · NEC 2020')).toBeTruthy()
