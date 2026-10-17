@@ -8,9 +8,13 @@ import { allQuestions, getQuestion } from './bank'
 import { EXAM, EXAM_TOPICS, topic } from './blueprint'
 import { getRecipe, listRecipes } from './recipes'
 
+/**
+ * One item of a paper. `answer` is the right option's index, fixed when the paper is built, so a
+ * saved exam is graded the way it was shown even if the app is updated before it is finished.
+ */
 export type ExamItem =
-  | { kind: 'question'; topic: TopicId; questionId: string }
-  | { kind: 'calc'; topic: TopicId; recipeId: string; seed: number }
+  | { kind: 'question'; topic: TopicId; questionId: string; answer?: number }
+  | { kind: 'calc'; topic: TopicId; recipeId: string; seed: number; answer?: number }
 
 export interface ExamPaper {
   seed: number
@@ -52,9 +56,15 @@ export function buildExam(seed: number, edition: NecEdition, opts: BuildOptions 
         continue
       }
       const weighted = pool.flatMap((r) => Array.from({ length: FAMILY_WEIGHT[r.family] ?? 1 }, () => r))
+      // Variety: at most three problems from one recipe on a paper (when there are enough recipes).
+      const cap = Math.max(3, Math.ceil(wanted / pool.length))
+      const used = new Map<string, number>()
       for (let i = 0; i < wanted; i++) {
-        const r = rng.pick(weighted)
-        items.push({ kind: 'calc', topic: t.id, recipeId: r.id, seed: rng.int(1, 2 ** 30) })
+        let r = rng.pick(weighted)
+        for (let tries = 0; (used.get(r.id) ?? 0) >= cap && tries < 50; tries++) r = rng.pick(weighted)
+        used.set(r.id, (used.get(r.id) ?? 0) + 1)
+        const seed = rng.int(1, 2 ** 30)
+        items.push({ kind: 'calc', topic: t.id, recipeId: r.id, seed, answer: r.generate(seed).choices.findIndex((c) => c.correct) })
       }
       continue
     }
@@ -63,11 +73,12 @@ export function buildExam(seed: number, edition: NecEdition, opts: BuildOptions 
     const chosen = [...fresh, ...seen].slice(0, wanted)
     // Theory may also draw a basics recipe (Ohm's law, power) when the bank is thin.
     const theoryCalcs = t.id === 'theory' ? recipes.filter((r) => r.topic === 'theory') : []
-    for (const q of chosen) items.push({ kind: 'question', topic: t.id, questionId: q.id })
+    for (const q of chosen) items.push({ kind: 'question', topic: t.id, questionId: q.id, answer: q.answer })
     let got = chosen.length
     while (got < wanted && theoryCalcs.length > 0) {
       const r = rng.pick(theoryCalcs)
-      items.push({ kind: 'calc', topic: t.id, recipeId: r.id, seed: rng.int(1, 2 ** 30) })
+      const seed = rng.int(1, 2 ** 30)
+      items.push({ kind: 'calc', topic: t.id, recipeId: r.id, seed, answer: r.generate(seed).choices.findIndex((c) => c.correct) })
       got++
     }
     if (got < wanted) shortfall.push({ topic: t.id, wanted, got })
@@ -84,6 +95,7 @@ export function buildExam(seed: number, edition: NecEdition, opts: BuildOptions 
 
 /** The index of the right option for an item. */
 export function correctIndex(item: ExamItem): number {
+  if (item.answer !== undefined && item.answer >= 0) return item.answer
   if (item.kind === 'question') {
     const q = getQuestion(item.questionId)
     if (!q) throw new Error(`question ${item.questionId} is gone`)
@@ -113,15 +125,16 @@ export interface ExamScore {
   passed: boolean
 }
 
-/** `answers[i]` is the option picked for item i (undefined = left blank, which scores 0). */
-export function scoreExam(paper: ExamPaper, answers: (number | undefined)[]): ExamScore {
+/** `answers[i]` is the option picked for item i (null or undefined = left blank, which scores 0). */
+export function scoreExam(paper: ExamPaper, answers: readonly (number | null | undefined)[]): ExamScore {
   const byTopic = new Map<TopicId, TopicScore>()
   paper.items.forEach((item, i) => {
     const t = topic(item.topic)
     const s = byTopic.get(t.id) ?? { topic: t.id, title: t.title, asked: 0, right: 0, points: 0, possible: 0 }
     s.asked++
     s.possible += t.points
-    if (answers[i] !== undefined && answers[i] === correctIndex(item)) {
+    const pick = answers[i]
+    if (pick != null && pick === correctIndex(item)) {
       s.right++
       s.points += t.points
     }
@@ -131,5 +144,6 @@ export function scoreExam(paper: ExamPaper, answers: (number | undefined)[]): Ex
   const points = list.reduce((a, s) => a + s.points, 0)
   const possible = list.reduce((a, s) => a + s.possible, 0)
   const pct = possible ? Math.round((points / possible) * 1000) / 10 : 0
-  return { byTopic: list, points, possible, pct, passed: pct >= EXAM.passPct }
+  // Pass on the exact points, not the rounded percent (69.96% is not 70%).
+  return { byTopic: list, points, possible, pct, passed: possible > 0 && points * 100 >= possible * EXAM.passPct }
 }

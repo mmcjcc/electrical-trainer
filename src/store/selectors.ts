@@ -6,7 +6,6 @@ import type { CoachMode, FadeLevel, TopicId } from '@/shared/types'
 import { BOX_DAYS, type Ev, type ExamEv, type LeitnerCard, type QuestionEv, type RecipeEv } from './types'
 import { dayKey, daysBetweenKeys, startOfIsoWeek } from './time'
 
-const DAY_MS = 86_400_000
 
 // ---------------------------------------------------------------------------------------------
 // Leitner boxes
@@ -18,7 +17,12 @@ const DAY_MS = 86_400_000
  */
 export function leitnerAfter(card: LeitnerCard | undefined, correct: boolean, now: number, hinted = false): LeitnerCard {
   const box = (correct && !hinted ? Math.min(5, (card?.box ?? 1) + 1) : 1) as LeitnerCard['box']
-  return { box, due: now + BOX_DAYS[box] * DAY_MS }
+  // Due at the start of the target calendar day, so "back tomorrow" is due all of tomorrow, not from
+  // the same clock time (review 2026-10-16). Box 1 is due right away.
+  const days = BOX_DAYS[box]
+  const d = new Date(now)
+  const due = days === 0 ? now : new Date(d.getFullYear(), d.getMonth(), d.getDate() + days).getTime()
+  return { box, due, last: now }
 }
 
 export function dueQuestionIds(leitner: Record<string, LeitnerCard>, now: number): string[] {
@@ -45,7 +49,8 @@ export interface TopicStat {
 export function topicStats(events: readonly Ev[], topics: readonly TopicId[]): TopicStat[] {
   const by = new Map<TopicId, QuestionEv[]>()
   for (const e of events) {
-    if (e.t !== 'q') continue
+    // Find-it rounds train navigation; they are not the topic's questions.
+    if (e.t !== 'q' || e.mode === 'find') continue
     const list = by.get(e.topic) ?? []
     list.push(e)
     by.set(e.topic, list)
@@ -67,7 +72,7 @@ export function topicStats(events: readonly Ev[], topics: readonly TopicId[]): T
 /** Question ids he has answered (for "avoid recently seen" in the exam builder). */
 export function seenQuestionIds(events: readonly Ev[], sinceMs: number): Set<string> {
   const s = new Set<string>()
-  for (const e of events) if (e.t === 'q' && e.at >= sinceMs) s.add(e.qid)
+  for (const e of events) if (e.t === 'q' && e.mode !== 'find' && e.at >= sinceMs) s.add(e.qid)
   return s
 }
 
@@ -125,18 +130,27 @@ export function recipeStage(events: readonly Ev[], rid: string): RecipeStage {
     const at = MODE_ORDER.indexOf(e.mode)
     const cur = MODE_ORDER.indexOf(stage)
     if (e.mode === 'test' && !e.pickedCorrect) {
-      // A missed exam-style question sends him back to the paper stage.
-      stage = 'paper'
-      clean = 0
+      // A missed exam-style question sends him back to the paper stage, if he was past it; it never
+      // moves him forward (review 2026-10-16).
+      if (cur >= MODE_ORDER.indexOf('paper')) stage = 'paper'
+      if (at === cur || cur >= MODE_ORDER.indexOf('paper')) clean = 0
       mastered = false
       continue
     }
-    if (!isClean(e) || at < cur) continue
+    if (at < cur) continue
+    if (!isClean(e)) {
+      // The clean runs that move him on must come in a row.
+      if (at === cur) {
+        clean = 0
+        if (stage === 'test') mastered = false
+      }
+      continue
+    }
     if (at > cur) {
       stage = e.mode
       clean = 1
     } else {
-      clean++
+      clean = Math.min(clean + 1, CLEAN_NEEDED[stage])
     }
     if (clean >= CLEAN_NEEDED[stage]) {
       if (stage === 'test') mastered = true
@@ -169,7 +183,9 @@ export interface MistakeCount {
 
 export function mistakeCounts(events: readonly Ev[], now: number): MistakeCount[] {
   const weekStart = startOfIsoWeek(now)
-  const lastWeekStart = weekStart - 7 * DAY_MS
+  // A calendar week back, not 7 × 24 h: a week with a daylight-saving change is 167 or 169 hours.
+  const ws = new Date(weekStart)
+  const lastWeekStart = new Date(ws.getFullYear(), ws.getMonth(), ws.getDate() - 7).getTime()
   const by = new Map<string, MistakeCount>()
   for (const e of events) {
     const id = e.t === 'line' && !e.ok ? e.mistake : e.t === 'recipe' && e.mode === 'test' && !e.pickedCorrect ? e.mistake : undefined
@@ -195,8 +211,10 @@ export function examHistory(events: readonly Ev[]): ExamEv[] {
 /** Consecutive days, ending today or yesterday, with any study. */
 export function streakDays(events: readonly Ev[], now: number): number {
   const days = new Set(events.map((e) => dayKey(e.at)))
+  const today = new Date(now)
   let key = dayKey(now)
-  if (!days.has(key)) key = dayKey(now - DAY_MS)
+  // Yesterday by the calendar, not now − 24 h (wrong on the two daylight-saving days).
+  if (!days.has(key)) key = dayKey(new Date(today.getFullYear(), today.getMonth(), today.getDate() - 1).getTime())
   let n = 0
   while (days.has(key)) {
     n++

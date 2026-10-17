@@ -12,7 +12,7 @@ import { hintLabel } from '@/components/question/QuestionCard'
 import { InlineConfirm } from '@/components/question/InlineConfirm'
 import { useChoiceKeys } from '@/components/question/useChoiceKeys'
 import { btnPrimary, btnSecondary, card, PageHeader } from '@/components/question/ui'
-import { useStore, type ExamSession, type QuestionEv } from '@/store'
+import { useStore, type ExamSession, type QuestionEv, type RecipeEv } from '@/store'
 import { itemView, safeScore } from './examItem'
 
 /** The longest stretch one tick may add (a phone asleep for an hour is not exam time). */
@@ -143,7 +143,20 @@ function Run({ exam }: { exam: ExamSession }) {
       // A blank counts as a miss so it comes back in Review; pick -1 means "left blank".
       perItem.push({ qid: v.q.id, topic: it.topic, pick: pickK ?? -1, correct: pickK === v.answer, hint: exam.hints[k] ?? 0, ms: msEach, mode: 'exam' })
     })
-    finishExam({ pct: score.pct, passed: score.passed, byTopic: score.byTopic.map((t) => ({ topic: t.topic, right: t.right, asked: t.asked })) }, perItem)
+    // Calculation items count as Test-me runs of their recipe (stage, calc readiness, mistakes).
+    const perCalc: Omit<RecipeEv, 't' | 'at'>[] = []
+    paper.items.forEach((it, k) => {
+      if (it.kind !== 'calc') return
+      const v = itemView(it)
+      if (v.kind !== 'calc') return
+      const pickK = answers[k] ?? null
+      const choice = pickK === null ? undefined : v.problem.choices[pickK]
+      perCalc.push({
+        rid: it.recipeId, seed: it.seed, mode: 'test', lines: 0, firstTry: 0, revealed: 0, hints: exam.hints[k] ?? 0,
+        pickedCorrect: pickK === v.answer, ...(choice && !choice.correct && choice.mistake ? { mistake: choice.mistake } : {}), ms: msEach,
+      })
+    })
+    finishExam({ pct: score.pct, passed: score.passed, byTopic: score.byTopic.map((t) => ({ topic: t.topic, right: t.right, asked: t.asked })) }, perItem, undefined, perCalc)
     navigate('/exam/results')
   }
 

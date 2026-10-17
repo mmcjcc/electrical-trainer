@@ -127,6 +127,8 @@ export interface LeitnerCard {
   box: 1 | 2 | 3 | 4 | 5
   /** Epoch ms when it is due again. */
   due: number
+  /** Epoch ms of the answer that set this card (merging two devices keeps the more recent one). */
+  last?: number
 }
 
 /** Days until a card in each box comes back. */

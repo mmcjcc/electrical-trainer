@@ -13,11 +13,13 @@ function rec(mode: RecipeEv['mode'], extra: Partial<RecipeEv> = {}, at = T0): Re
 
 describe('leitner', () => {
   it('moves up on right, back to 1 on wrong', () => {
+    // Due at the start of the target calendar day (T0 is noon on a Wednesday).
+    const midnight = (days: number) => new Date(2026, 9, 14 + days).getTime()
     const a = leitnerAfter(undefined, true, T0)
-    expect(a).toEqual({ box: 2, due: T0 + DAY })
+    expect(a).toEqual({ box: 2, due: midnight(1), last: T0 })
     const b = leitnerAfter(a, true, T0)
-    expect(b).toEqual({ box: 3, due: T0 + 3 * DAY })
-    expect(leitnerAfter(undefined, false, T0)).toEqual({ box: 1, due: T0 })
+    expect(b).toEqual({ box: 3, due: midnight(3), last: T0 })
+    expect(leitnerAfter(undefined, false, T0)).toEqual({ box: 1, due: T0, last: T0 })
     expect(leitnerAfter(b, false, T0).box).toBe(1)
     expect(leitnerAfter({ box: 5, due: 0 }, true, T0).box).toBe(5)
   })
@@ -35,11 +37,28 @@ describe('recipe stage', () => {
     evs.push(rec('test', { pickedCorrect: true }), rec('test', { pickedCorrect: true }))
     expect(recipeStage(evs, 'r1').mastered).toBe(true)
   })
+  it('a missed test before the paper stage never moves him forward; clean runs must be in a row', () => {
+    expect(recipeStage([rec('test', { pickedCorrect: false })], 'r1').suggested).toBe('show')
+    const evs: Ev[] = [rec('show'), rec('coach'), rec('coach', { revealed: 2 }), rec('coach')]
+    expect(recipeStage(evs, 'r1')).toMatchObject({ suggested: 'coach', clean: 1 })
+  })
+  it('merge keeps the more recent review, even when it is a miss', () => {
+    const settings = useStore.getState().settings
+    const file = JSON.stringify(buildBackup({ settings, events: [], leitner: { q1: { box: 1, due: T0 + DAY, last: T0 + DAY } } }))
+    const r = importBackup(file, { settings, events: [], leitner: { q1: { box: 4, due: T0 + 7 * DAY, last: T0 } } }, 'merge')
+    expect(r.ok && r.leitner.q1?.box).toBe(1)
+  })
   it('a sloppy run does not count; a missed test drops to paper', () => {
     const evs: Ev[] = [rec('show'), rec('coach', { firstTry: 5 }), rec('coach')]
     expect(recipeStage(evs, 'r1')).toMatchObject({ suggested: 'coach', clean: 1 })
+    // A miss in Test me before he reached Paper leaves him where he was.
     evs.push(rec('test', { pickedCorrect: false, mistake: 'forgot_125_continuous' }))
-    expect(recipeStage(evs, 'r1').suggested).toBe('paper')
+    expect(recipeStage(evs, 'r1').suggested).toBe('coach')
+    // From the test stage, a miss drops him back to Paper.
+    const at: Ev[] = [rec('show'), rec('coach'), rec('coach'), rec('paper'), rec('paper'), rec('test', { pickedCorrect: true })]
+    expect(recipeStage(at, 'r1').suggested).toBe('test')
+    at.push(rec('test', { pickedCorrect: false }))
+    expect(recipeStage(at, 'r1')).toMatchObject({ suggested: 'paper', clean: 0, mastered: false })
   })
   it('jumping ahead with a clean higher-mode run gets credit', () => {
     expect(recipeStage([rec('test', { pickedCorrect: true })], 'r1')).toMatchObject({ suggested: 'test', clean: 1 })
@@ -95,6 +114,6 @@ describe('store actions', () => {
     useStore.getState().answerQuestion({ qid: 'gnd-001', topic: 'wiring-protection', pick: 2, correct: false, hint: 1, ms: 9000, mode: 'practice', at: T0 })
     const s = useStore.getState()
     expect(s.events).toHaveLength(1)
-    expect(s.leitner['gnd-001']).toEqual({ box: 1, due: T0 })
+    expect(s.leitner['gnd-001']).toEqual({ box: 1, due: T0, last: T0 })
   })
 })

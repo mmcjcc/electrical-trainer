@@ -75,21 +75,31 @@ export function importBackup(
   if (isRecord(raw.leitner)) {
     for (const [id, c] of Object.entries(raw.leitner)) {
       if (isRecord(c) && typeof c.box === 'number' && c.box >= 1 && c.box <= 5 && typeof c.due === 'number') {
-        leitnerIn[id] = { box: c.box as LeitnerCard['box'], due: c.due }
+        leitnerIn[id] = { box: c.box as LeitnerCard['box'], due: c.due, ...(typeof c.last === 'number' ? { last: c.last } : {}) }
       }
     }
   }
   if (mode === 'replace') {
-    return { ok: true, settings: normalizeSettings(raw.settings), events: incoming.slice(-MAX_EVENTS), leitner: leitnerIn, added: incoming.length }
+    const events = [...incoming].sort((a, b) => a.at - b.at).slice(-MAX_EVENTS)
+    return { ok: true, settings: normalizeSettings(raw.settings), events, leitner: leitnerIn, added: events.length }
   }
   const seen = new Set(current.events.map(evKey))
-  const fresh = incoming.filter((e) => !seen.has(evKey(e)))
+  const fresh: Ev[] = []
+  for (const e of incoming) {
+    const k = evKey(e)
+    if (seen.has(k)) continue
+    seen.add(k)
+    fresh.push(e)
+  }
   const events = [...current.events, ...fresh].sort((a, b) => a.at - b.at).slice(-MAX_EVENTS)
   const leitner = { ...current.leitner }
   for (const [id, c] of Object.entries(leitnerIn)) {
     const mine = leitner[id]
-    // Keep the card that was reviewed more recently (its due date is further out for the same box).
-    if (!mine || c.due > mine.due) leitner[id] = c
+    // Keep the card from the more recent answer: a newer miss (box 1, due now) beats an older
+    // box 4 even though its due date is earlier (review 2026-10-16). Older files have no `last`.
+    const theirs = c.last ?? 0
+    const ours = mine?.last ?? 0
+    if (!mine || theirs > ours || (theirs === ours && c.due > mine.due)) leitner[id] = c
   }
   return { ok: true, settings: current.settings, events, leitner, added: fresh.length }
 }

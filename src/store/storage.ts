@@ -68,10 +68,23 @@ export function createFanOutStorage(onError?: (failedKeys: string[]) => void): P
       const partial: Partial<PersistedState> = {}
       let any = false
       for (const slice of SLICES) {
-        const v = safeRead<unknown>(STORAGE_KEYS[slice])
+        const key = STORAGE_KEYS[slice]
+        const v = safeRead<unknown>(key)
         if (v !== undefined) {
           any = true
           ;(partial as Record<string, unknown>)[slice] = v
+        } else {
+          // A key that exists but does not parse is kept aside before the slice is written again, so
+          // a damaged log is never silently replaced by an empty one (review 2026-10-16).
+          try {
+            const raw = window.localStorage.getItem(key)
+            if (raw != null && window.localStorage.getItem(`${key}.corrupt`) == null) {
+              window.localStorage.setItem(`${key}.corrupt`, raw)
+              onError?.([key])
+            }
+          } catch {
+            /* storage unavailable: nothing to keep */
+          }
         }
       }
       if (!any) return null
