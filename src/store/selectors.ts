@@ -12,9 +12,12 @@ const DAY_MS = 86_400_000
 // Leitner boxes
 // ---------------------------------------------------------------------------------------------
 
-/** Right moves a card up one box; wrong (or a hinted right in review) sends it back to box 1. */
+/**
+ * Right moves a card up one box (a first right answer starts in box 2, back tomorrow, so Review does
+ * not re-ask what he just practised); wrong, or a hinted right in review, sends it back to box 1.
+ */
 export function leitnerAfter(card: LeitnerCard | undefined, correct: boolean, now: number, hinted = false): LeitnerCard {
-  const box = (correct && !hinted ? Math.min(5, (card?.box ?? 0) + 1) : 1) as LeitnerCard['box']
+  const box = (correct && !hinted ? Math.min(5, (card?.box ?? 1) + 1) : 1) as LeitnerCard['box']
   return { box, due: now + BOX_DAYS[box] * DAY_MS }
 }
 

@@ -20,6 +20,7 @@ import {
 
 export * from './types'
 export * from './selectors'
+export * from './selectors.facts'
 export { dayKey, relativeDays, daysAgo } from './time'
 export type { ImportMode } from './backup'
 

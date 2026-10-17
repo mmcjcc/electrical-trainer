@@ -14,9 +14,10 @@ function rec(mode: RecipeEv['mode'], extra: Partial<RecipeEv> = {}, at = T0): Re
 describe('leitner', () => {
   it('moves up on right, back to 1 on wrong', () => {
     const a = leitnerAfter(undefined, true, T0)
-    expect(a.box).toBe(1)
+    expect(a).toEqual({ box: 2, due: T0 + DAY })
     const b = leitnerAfter(a, true, T0)
-    expect(b).toEqual({ box: 2, due: T0 + DAY })
+    expect(b).toEqual({ box: 3, due: T0 + 3 * DAY })
+    expect(leitnerAfter(undefined, false, T0)).toEqual({ box: 1, due: T0 })
     expect(leitnerAfter(b, false, T0).box).toBe(1)
     expect(leitnerAfter({ box: 5, due: 0 }, true, T0).box).toBe(5)
   })
