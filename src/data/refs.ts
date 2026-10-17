@@ -1,5 +1,5 @@
 /**
- * Where each concept lives in the code book, per NEC edition. Recipes and questions point here
+ * Where each concept lives in the code book, per NEC edition (2020 is the exam's; 2026 is the next). Recipes and questions point here
  * instead of typing section numbers, so an edition change is one edit. `loc` is the 2020 location;
  * `byEdition['2023']` is given only where 2023 moved it. Verified against the crosswalk research
  * (docs/research/nec-crosswalk.md) and the Annex D research (docs/research/annex-d-methods.md); rows
@@ -7,12 +7,14 @@
  */
 import type { CodeRef } from '@/shared/types'
 
-const nec = (loc: string, title: string, loc2023?: string): CodeRef => ({
-  book: 'NEC',
-  loc,
-  title,
-  ...(loc2023 && loc2023 !== loc ? { byEdition: { '2023': loc2023 } } : {}),
-})
+/** `loc` is the 2020 location; give 2023/2026 only where they differ (crosswalk research). */
+const nec = (loc: string, title: string, loc2023?: string, loc2026?: string): CodeRef => {
+  const byEdition: Partial<Record<'2023' | '2026', string>> = {}
+  if (loc2023 && loc2023 !== loc) byEdition['2023'] = loc2023
+  const l26 = loc2026 ?? loc2023
+  if (l26 && l26 !== loc) byEdition['2026'] = l26
+  return { book: 'NEC', loc, title, ...(Object.keys(byEdition).length ? { byEdition } : {}) }
+}
 
 export const REF = {
   // ---- Chapter 9 and Annex C -----------------------------------------------------------------------
@@ -35,7 +37,7 @@ export const REF = {
 
   // ---- Article 310 / 110 / 240 -------------------------------------------------------------------------
   ampacityTable: nec('Table 310.16', 'Ampacities of insulated conductors, 0-2000 V, not more than three in a raceway, 30°C'),
-  tempCorrection: nec('Table 310.15(B)(1)', 'Ambient temperature correction factors (30°C basis)', 'Table 310.15(B)(1)(1)'),
+  tempCorrection: nec('Table 310.15(B)(1)', 'Ambient temperature correction factors (30°C basis)', 'Table 310.15(B)(1)(1)', 'Table 310.15(B)(1)(1)'),
   adjustment: nec('Table 310.15(C)(1)', 'Adjustment factors for more than three current-carrying conductors'),
   neutralCounting: nec('310.15(E)', 'When the neutral counts as current-carrying'),
   dwellingService83: nec('310.12', 'Single-phase dwelling services and feeders: 83% of the rating (Table 310.12 lists sizes)'),
@@ -43,15 +45,17 @@ export const REF = {
   smallConductor: nec('240.4(D)', 'Small conductors: 14 AWG 15 A, 12 AWG 20 A, 10 AWG 30 A (copper)'),
   nextSizeUp: nec('240.4(B)', 'Overcurrent devices rated 800 A or less: next higher standard rating'),
   standardOcpd: nec('240.6(A)', 'Standard ampere ratings of fuses and inverse-time breakers'),
-  continuousBranch: nec('210.19(A)(1)', 'Branch-circuit conductors: 125% of continuous load'),
+  continuousBranch: nec('210.19(A)(1)(a)', 'Branch-circuit conductors: 125% of continuous load', '210.19(A)(1)', '210.19(A)(1)'),
   continuousBranchOcpd: nec('210.20(A)', 'Branch-circuit OCPD: 125% of continuous load'),
-  continuousFeeder: nec('215.2(A)(1)', 'Feeder conductors: 125% of continuous load'),
-  continuousFeederOcpd: nec('215.3', 'Feeder OCPD: 125% of continuous load'),
+  continuousFeeder: nec('215.2(A)(1)(a)', 'Feeder conductors: 125% of continuous load', '215.2(A)(1)', '215.4(A)(1)'),
+  vdBranchNote: nec('210.19(A), Informational Note No. 3', 'Voltage drop: 3% for a branch circuit, 5% branch plus feeder (a recommendation)', '210.19, Informational Note', '210.19, Informational Note'),
+  vdFeederNote: nec('215.2(A)(1), Informational Note No. 2', 'Voltage drop: 3% for a feeder, 5% feeder plus branch (a recommendation)', '215.2(A)(2), Informational Note No. 2', '215.4(A)(2), Informational Note No. 2'), // VERIFY 2026
+  continuousFeederOcpd: nec('215.3', 'Feeder OCPD: 125% of continuous load', '215.3', '215.5'),
 
   // ---- 314 boxes ----------------------------------------------------------------------------------------
   boxFill: nec('314.16', 'Number of conductors in outlet, device, and junction boxes'),
   boxVolumes: nec('Table 314.16(A)', 'Metal boxes: minimum volume and max. number of conductors'),
-  boxPerConductor: nec('Table 314.16(B)', 'Volume allowance required per conductor'),
+  boxPerConductor: nec('Table 314.16(B)', 'Volume allowance required per conductor', 'Table 314.16(B)(1)', 'Table 314.16(B)(1)'),
   boxConductorCount: nec('314.16(B)(1)', 'Conductor fill: each conductor from outside counts once'),
   boxClamps: nec('314.16(B)(2)', 'Clamp fill: all internal clamps count as one'),
   boxSupportFittings: nec('314.16(B)(3)', 'Support fittings fill: each type counts as one'),
@@ -72,35 +76,36 @@ export const REF = {
   motorFeederOcpd: nec('430.62(A)', 'Motor feeder OCPD: largest branch device plus the other FLCs; do not round up'),
 
   // ---- 450 transformers ----------------------------------------------------------------------------------
-  transformerOcpd: nec('Table 450.3(B)', 'Transformer overcurrent protection, 1000 V and less'),
+  transformerOcpd: nec('Table 450.3(B)', 'Transformer overcurrent protection, 1000 V and less', 'Table 450.3(B)', 'Table 450.5(B)'),
 
   // ---- 220 load calculations (2023 reorganized Part III; 2020 rows confirmed 2026-10-16) ----------------
-  voltagesForCalcs: nec('220.5(A)', 'Voltages to use: 120, 120/240, 208Y/120, 240, 480Y/277, 480 ...'),
-  fractionsOfAmpere: nec('220.5(B)', 'Fractions of an ampere under 0.5 may be dropped'),
-  floorArea: nec('220.11', 'Floor area: outside dimensions; not open porches, garages, unfinished spaces (2023 no longer excludes garages)', '220.5(C)'),
-  dwellingLighting: nec('220.14(J)', 'Dwelling units: 3 VA per ft² (includes general-use receptacles)', '220.41'),
-  nonDwellingLighting: nec('Table 220.12', 'General lighting load by non-dwelling occupancy (the 125% for continuous load is already included)', 'Table 220.42(A)'),
-  receptacleOutlets: nec('220.14(I)', 'Receptacle outlets: 180 VA per single, duplex, or triple yoke'),
-  signOutlet: nec('220.14(F)', 'Sign and outline lighting outlet: 1,200 VA'),
-  showWindow: nec('220.14(G)', 'Show windows: 200 VA per linear foot'),
-  lightingDemand: nec('Table 220.42', 'Lighting load demand factors', 'Table 220.45'),
-  nonDwellingReceptacles: nec('Table 220.44', 'Demand factors for non-dwelling receptacle loads', 'Table 220.47'),
-  smallAppliance: nec('220.52(A)', 'Small-appliance circuits: 1,500 VA each'),
-  laundry: nec('220.52(B)', 'Laundry circuit: 1,500 VA'),
-  fixedAppliances: nec('220.53', 'Fastened-in-place appliances: 75% when four or more'),
-  dryers: nec('220.54', 'Household dryers: 5,000 VA or nameplate, demand per Table 220.54'),
-  dryerTable: nec('Table 220.54', 'Demand factors for household electric clothes dryers'),
-  ranges: nec('220.55', 'Household ranges and cooking appliances'),
-  rangeTable: nec('Table 220.55', 'Demand loads for household ranges, ovens, cooktops (Columns A, B, C and Notes)'),
-  kitchenEquipment: nec('Table 220.56', 'Demand factors for commercial kitchen equipment'),
-  noncoincident: nec('220.60', 'Noncoincident loads: keep the larger of heat and A/C'),
-  neutralLoad: nec('220.61', 'Feeder or service neutral load'),
-  motorLoadCalc: nec('220.50', 'Motor loads per 430.24 (125% of the largest motor)', '220.50(A)'),
-  optionalDwelling: nec('220.82', 'Optional method, one dwelling unit'),
-  optionalDwellingGeneral: nec('220.82(B)', 'Optional method: general loads, first 10 kVA at 100%, remainder 40%'),
-  optionalDwellingHvac: nec('220.82(C)', 'Optional method: heating and air-conditioning load'),
-  optionalMultifamily: nec('220.84', 'Optional method, three or more dwelling units'),
-  optionalMultifamilyTable: nec('Table 220.84', 'Demand factors for three or more multifamily dwelling units'),
+  voltagesForCalcs: nec('220.5(A)', 'Voltages to use: 120, 120/240, 208Y/120, 240, 480Y/277, 480 ...', '220.5(A)', '120.5(A)'),
+  fractionsOfAmpere: nec('220.5(B)', 'Fractions of an ampere under 0.5 may be dropped', '220.5(B)', '120.5(B)'),
+  floorArea: nec('220.11', 'Floor area: outside dimensions; not open porches, garages, unfinished spaces (2023 no longer excludes garages)', '220.5(C)', '120.5(C)'),
+  dwellingLighting: nec('220.14(J)', 'Dwelling units: 3 VA per ft² (includes general-use receptacles)', '220.41', '120.41'),
+  nonDwellingLighting: nec('Table 220.12', 'General lighting load by non-dwelling occupancy (the 125% for continuous load is already included)', 'Table 220.42(A)', 'Table 120.42(A)'),
+  receptacleOutlets: nec('220.14(I)', 'Receptacle outlets: 180 VA per single, duplex, or triple yoke', '220.14(I)', '120.14(I)'),
+  showWindowFeeder: nec('220.43(A)', 'Show windows in a feeder or service calculation: 200 VA per linear foot', '220.46(A)', '120.46'),
+  signOutlet: nec('220.14(F)', 'Sign and outline lighting outlet: 1,200 VA', '220.14(F)', '120.14(F)'),
+  showWindow: nec('220.14(G)', 'Show windows (branch circuits): 200 VA per linear foot', '220.14(G)', '120.14(G)'),
+  lightingDemand: nec('Table 220.42', 'Lighting load demand factors', 'Table 220.45', 'Table 120.45'),
+  nonDwellingReceptacles: nec('Table 220.44', 'Demand factors for non-dwelling receptacle loads', 'Table 220.47', 'Table 120.47'),
+  smallAppliance: nec('220.52(A)', 'Small-appliance circuits: 1,500 VA each', '220.52(A)', '120.52(A)'),
+  laundry: nec('220.52(B)', 'Laundry circuit: 1,500 VA', '220.52(B)', '120.52(B)'),
+  fixedAppliances: nec('220.53', 'Fastened-in-place appliances: 75% when four or more', '220.53', '120.53'),
+  dryers: nec('220.54', 'Household dryers: 5,000 VA or nameplate, demand per Table 220.54', '220.54', '120.54'),
+  dryerTable: nec('Table 220.54', 'Demand factors for household electric clothes dryers', 'Table 220.54', 'Table 120.54'),
+  ranges: nec('220.55', 'Household ranges and cooking appliances', '220.55', '120.55'),
+  rangeTable: nec('Table 220.55', 'Demand loads for household ranges, ovens, cooktops (Columns A, B, C and Notes)', 'Table 220.55', 'Table 120.55'),
+  kitchenEquipment: nec('Table 220.56', 'Demand factors for commercial kitchen equipment', 'Table 220.56', 'Table 120.56'),
+  noncoincident: nec('220.60', 'Noncoincident loads: keep the larger of heat and A/C', '220.60', '120.6'),
+  neutralLoad: nec('220.61', 'Feeder or service neutral load', '220.61', '120.61'),
+  motorLoadCalc: nec('220.50', 'Motor loads per 430.24 (125% of the largest motor)', '220.50(A)', '120.50'),
+  optionalDwelling: nec('220.82', 'Optional method, one dwelling unit', '220.82', '120.82'),
+  optionalDwellingGeneral: nec('220.82(B)', 'Optional method: general loads, first 10 kVA at 100%, remainder 40%', '220.82(B)', '120.82(B)'),
+  optionalDwellingHvac: nec('220.82(C)', 'Optional method: heating and air-conditioning load', '220.82(C)', '120.82(C)'),
+  optionalMultifamily: nec('220.84', 'Optional method, three or more dwelling units', '220.84', '120.84'),
+  optionalMultifamilyTable: nec('Table 220.84', 'Demand factors for three or more multifamily dwelling units', 'Table 220.84(B)', 'Table 120.84(C)'),
   minServiceDwelling: nec('230.79(C)', 'One-family dwelling service: not less than 100 A'),
 
   // ---- 250 grounding ------------------------------------------------------------------------------------------
