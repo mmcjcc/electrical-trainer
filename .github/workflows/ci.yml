@@ -1,0 +1,79 @@
+# CI: typecheck, tests and a production build on every pull request and every push to main, plus a Docker build of
+# the image checked by deploy/smoke.sh (started the way docker01 starts it; see the top of that file for what it
+# checks). Docker is not installed on the dev box, so this is where the Dockerfile, nginx.conf and the start-up
+# hooks actually run. Tools are called through node, the same forms as CLAUDE.md, not through npm scripts.
+#
+# Pushing and deploying are not done here: .github/workflows/homelab-image.yml (the platform's scaffold) builds,
+# checks and pushes ghcr.io/mmcjcc/electrical-trainer:<git sha>. After the first deploy the platform deploys a push
+# to main once every CI run of that commit is green, so a failure here also holds a deploy back.
+# Read-only token, no secrets: nothing in this workflow can push to the repository or the registry.
+# Actions are pinned to commit SHAs (the tag is in the comment); bump both together.
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# A pull request cancels its superseded runs. A push never cancels another push: each commit on main keeps its own
+# green or red result, which is what the platform's continuous deploy looks at.
+concurrency:
+  group: ci-${{ github.event_name == 'pull_request' && github.ref || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  check:
+    name: typecheck / test / build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install
+        run: npm ci --no-audit --no-fund
+
+      - name: Typecheck
+        run: |
+          node node_modules/typescript/bin/tsc -p tsconfig.app.json --noEmit
+          node node_modules/typescript/bin/tsc -p tsconfig.node.json --noEmit
+
+      - name: Test
+        run: node node_modules/vitest/vitest.mjs run
+
+      - name: Build
+        run: node node_modules/vite/bin/vite.js build
+
+      - name: Build size
+        run: du -sh dist dist/assets && ls -la dist
+
+  image:
+    name: docker build / smoke
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      - name: Build the image (linux/amd64, loaded into the runner's Docker, not pushed)
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          platforms: linux/amd64
+          load: true
+          push: false
+          tags: electrical-trainer:ci
+          provenance: false
+          sbom: false
+          cache-from: type=gha,scope=ci-image
+          cache-to: type=gha,mode=max,scope=ci-image
+
+      - name: Smoke test (as docker01 runs it)
+        run: bash deploy/smoke.sh electrical-trainer:ci

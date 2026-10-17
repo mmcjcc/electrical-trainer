@@ -1,0 +1,255 @@
+# .github/workflows/homelab-image.yml in an app repo. Copy as is; an app with a sidecar adds one matrix line (below).
+# Served by: ssh homelab contract scaffold workflow
+# Builds one image per container of the app for linux/amd64, smoke-tests it against the hosting contract (HOSTING.md,
+# contract 2) and, except on a pull request, pushes <image repo>:<git sha>:
+#   the app's own container   ghcr.io/<owner>/<repo>              from the Dockerfile at the repo root
+#   a sidecar                 the `image:` of that sidecar in deploy/homelab.yml, from the matrix line's Dockerfile
+# Deploys are addressed by commit (sh deploy/deploy.sh): every pushed commit on the default branch needs every image,
+# so a push builds whatever changed. On another branch run it by hand: gh workflow run homelab-image --ref <branch>
+# It needs no secrets: GITHUB_TOKEN may push packages for this repository. A sidecar's package that already exists
+# must give this repository write access (the package's settings, "Manage Actions access").
+# The contract asks for the result, not for this file: an app that already builds and tests its images may keep its
+# own workflow, as long as each image passes what HOSTING.md section 2 lists (tag = full git sha, the two labels).
+# These checks are advice (docker01 repeats the ones that matter at deploy time); do not weaken them to get a green run.
+# Actions are pinned to commit SHAs (the tag is in the comment); bump both together.
+name: homelab-image
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    # deploy/** is not ignored: the smoke test reads uid, port and health from deploy/homelab.yml.
+    paths-ignore: ["**.md", "docs/**"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+# A pull request cancels its superseded runs. A push never cancels or replaces another push (one group per commit).
+concurrency:
+  group: homelab-image-${{ github.event_name == 'pull_request' && github.ref || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    strategy:
+      # One image failing must not stop the other: the deploy names every image that is missing.
+      fail-fast: false
+      matrix:
+        # One line per container. `service` is app, or the `name` of a sidecar in deploy/homelab.yml.
+        # Everything else about a container (image name, uid, volumes) is read from the manifest, never repeated here.
+        include:
+          - {service: app, context: ., dockerfile: Dockerfile}
+          # - {service: tutor, context: server, dockerfile: server/Dockerfile}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        if: github.event_name != 'pull_request'
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: What this line builds (read from deploy/homelab.yml)
+        id: name
+        shell: bash
+        env:
+          SERVICE: ${{ matrix.service }}
+          LINES: ${{ strategy.job-total }}
+        run: |
+          set -euo pipefail
+          m=deploy/homelab.yml
+          fail() { echo "::error::$1"; exit 1; }
+
+          if [ ! -f "$m" ]; then fail "$m is missing (the contract 2 manifest)"; fi
+          if [[ "$(<"$m")" == *$'\r'* ]]; then fail "$m has CR line ends; the gate accepts LF only (add deploy/* text eol=lf to .gitattributes)"; fi
+
+          # Top-level scalar fields, read without a YAML library: `key: value   # comment` starting in column 1.
+          field() {
+            awk -v k="$1" -v q="'" '
+              index($0, k ":") == 1 {
+                v = substr($0, length(k) + 2)
+                sub(/[ \t]+#.*$/, "", v)
+                gsub(/^[ \t]+|[ \t]+$/, "", v)
+                n = length(v)
+                if (n >= 2 && substr(v, 1, 1) == substr(v, n, 1) && (substr(v, 1, 1) == "\"" || substr(v, 1, 1) == q)) v = substr(v, 2, n - 2)
+                print v
+                exit
+              }' "$m"
+          }
+          contract=$(field contract)
+          if [ "$contract" != 2 ]; then fail "$m must say contract: 2 (found '${contract}')"; fi
+
+          # The sidecars of the manifest. yq (on the runner image) is needed only by an app that has one.
+          sidecars=""
+          if grep -q '^sidecars:' "$m"; then
+            if ! command -v yq >/dev/null; then fail "yq is not on this runner; it is needed to read the sidecars of $m"; fi
+            sidecars=$(yq -r '(.sidecars // []) | .[] | .name' "$m")
+          fi
+          count=0
+          for name in $sidecars; do count=$((count + 1)); done
+          if [ "$LINES" != "$((count + 1))" ]; then
+            fail "the build matrix has $LINES line(s), but $m has the app and $count sidecar(s): it needs exactly one line per container"
+          fi
+
+          app_image="ghcr.io/${GITHUB_REPOSITORY,,}"
+          port=""; health=""
+          if [ "$SERVICE" = app ]; then
+            image=$(field image); uid=$(field uid); port=$(field port); health=$(field health)
+            # docker01 pulls the manifest's image and requires its source label to be this repository.
+            if [ "$image" != "$app_image" ]; then fail "$m says image: '${image}', but this repository's image is $app_image"; fi
+            port_re='^[1-9][0-9]{3,4}$'; health_re='^/[A-Za-z0-9/_.-]{0,63}$'
+            if [[ ! "$port" =~ $port_re ]] || [ "$port" -lt 1025 ] || [ "$port" -gt 65535 ]; then fail "$m needs port: 1025-65535"; fi
+            if [[ ! "$health" =~ $health_re ]]; then fail "$m needs health: a path such as /healthz"; fi
+            data=false
+            if awk '
+                { sub(/[ \t]+#.*$/, "") }
+                /^volumes:/ { v = 1; if ($0 ~ /data/) f = 1; next }
+                v && /^[^ \t#-]/ { v = 0 }
+                v && /^[ \t]*-[ \t]*.?data.?[ \t]*$/ { f = 1 }
+                END { exit f ? 0 : 1 }' "$m"; then
+              data=true
+            fi
+          else
+            name_re='^[a-z][a-z0-9]{1,11}$'
+            if [[ ! "$SERVICE" =~ $name_re ]] || ! grep -qx -- "$SERVICE" <<<"$sidecars"; then
+              fail "matrix service '${SERVICE}' is neither app nor the name of a sidecar in $m"
+            fi
+            export SERVICE
+            image=$(yq -r '.sidecars[] | select(.name == strenv(SERVICE)) | .image' "$m")
+            uid=$(yq -r '.sidecars[] | select(.name == strenv(SERVICE)) | .uid' "$m")
+            data=$(yq -r '.sidecars[] | select(.name == strenv(SERVICE)) | (.volumes // []) | contains(["data"])' "$m")
+            # A sidecar has a repository of its own under the same owner: no tag, no digest, not the app's.
+            image_re='^ghcr\.io/[a-z0-9._-]+/[a-z0-9._/-]+$'
+            if [[ ! "$image" =~ $image_re ]] || [[ "$image" != "ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/"* ]]; then
+              fail "sidecar ${SERVICE} needs image: ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/<name>, lower case, no tag, no digest (found '${image}')"
+            fi
+            if [ "$image" = "$app_image" ]; then fail "sidecar ${SERVICE} must have an image repository of its own, not the app's"; fi
+            if [ "$data" != true ]; then data=false; fi
+          fi
+          uid_re='^[1-9][0-9]{0,9}$'
+          if [[ ! "$uid" =~ $uid_re ]]; then fail "$m needs uid: <the numeric UID this container runs as, not 0> for ${SERVICE}"; fi
+
+          {
+            echo "repo=$image"
+            # Every image of the app, a sidecar's too, names this repository as its source.
+            echo "source=https://github.com/${GITHUB_REPOSITORY,,}"
+            echo "uid=$uid"
+            echo "data=$data"
+            echo "port=$port"
+            echo "health=$health"
+          } >> "$GITHUB_OUTPUT"
+      - name: Build (loaded into the runner's Docker for the smoke test)
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.dockerfile }}
+          platforms: linux/amd64
+          load: true
+          tags: ${{ steps.name.outputs.repo }}:${{ github.sha }}
+          # docker01 refuses an image whose revision is not the deployed commit or whose source is not the app's repo.
+          labels: |
+            org.opencontainers.image.source=${{ steps.name.outputs.source }}
+            org.opencontainers.image.revision=${{ github.sha }}
+          # A plain single-platform manifest, not an index with attestations.
+          provenance: false
+          sbom: false
+          cache-from: type=gha,scope=${{ matrix.service }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.service }}
+      - name: Contract smoke test
+        shell: bash
+        env:
+          IMAGE: ${{ steps.name.outputs.repo }}:${{ github.sha }}
+          SERVICE: ${{ matrix.service }}
+          RUN_UID: ${{ steps.name.outputs.uid }}
+          DATA: ${{ steps.name.outputs.data }}
+          PORT: ${{ steps.name.outputs.port }}
+          HEALTH: ${{ steps.name.outputs.health }}
+        run: |
+          set -euo pipefail
+          fail() { echo "::error::$1"; exit 1; }
+
+          # Image labels become container labels, and Traefik routes on container labels: the platform alone defines routing.
+          labels=$(docker image inspect -f '{{range $k, $v := .Config.Labels}}{{println $k}}{{end}}' "$IMAGE")
+          if grep -qi '^traefik' <<<"$labels"; then fail "the image of ${SERVICE} carries traefik.* labels; remove them"; fi
+
+          hc=$(docker image inspect -f '{{if .Config.Healthcheck}}{{json .Config.Healthcheck.Test}}{{end}}' "$IMAGE")
+          if [ -z "$hc" ] || [ "$hc" = null ] || [ "$hc" = '["NONE"]' ]; then fail "the image of ${SERVICE} has no HEALTHCHECK"; fi
+
+          # The way docker01 runs it: the manifest's uid, read-only root, tmpfs /tmp, no capabilities, and a writable
+          # /data only when the manifest gives this container `volumes: [data]`.
+          # No manifest env and no secrets are set here, and the container is alone: the app must turn healthy without
+          # its sidecar, and a sidecar without its app.
+          data_mount=()
+          if [ "$DATA" = true ]; then
+            data_mount=(--mount type=tmpfs,destination=/data,tmpfs-mode=1777)
+          fi
+          cid=$(docker run -d --read-only --tmpfs /tmp:size=64m "${data_mount[@]}" \
+            --cap-drop ALL --security-opt no-new-privileges --user "$RUN_UID:$RUN_UID" "$IMAGE")
+          trap 'docker rm -f "$cid" >/dev/null 2>&1 || true' EXIT
+
+          state=starting
+          deadline=$((SECONDS + 120))
+          while [ "$SECONDS" -lt "$deadline" ]; do
+            state=$(docker inspect -f '{{.State.Status}} {{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "$cid")
+            if [ "$state" = "running healthy" ] || [ "${state%% *}" != running ]; then break; fi
+            sleep 3
+          done
+          if [ "$state" != "running healthy" ]; then
+            echo "--- container logs"
+            docker logs --tail 100 "$cid" 2>&1 || true
+            echo "--- health check output"
+            docker inspect -f '{{range .State.Health.Log}}{{println .ExitCode .Output}}{{end}}' "$cid" || true
+            fail "${SERVICE} is not healthy within 120 s as uid $RUN_UID with a read-only root filesystem (state: $state)"
+          fi
+
+          if [ "$SERVICE" != app ]; then
+            # A sidecar has no route: its HEALTHCHECK is all the platform looks at.
+            echo "smoke test passed: sidecar ${SERVICE} is healthy as uid $RUN_UID"
+            exit 0
+          fi
+
+          # Traefik will send requests to the manifest's port, and the manifest's health path must be the one that answers.
+          ip=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' "$cid")
+          code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 2 "http://$ip:$PORT$HEALTH" || true)
+          if [ "$code" != 200 ]; then
+            fail "GET $HEALTH on port $PORT answered $code, not 200 within 2 s: port and health in deploy/homelab.yml must match the image"
+          fi
+          echo "smoke test passed: healthy as uid $RUN_UID, GET $HEALTH on port $PORT is 200"
+      - id: build
+        name: Push (same build, a cache hit)
+        if: github.event_name != 'pull_request'
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.dockerfile }}
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.name.outputs.repo }}:${{ github.sha }}
+          labels: |
+            org.opencontainers.image.source=${{ steps.name.outputs.source }}
+            org.opencontainers.image.revision=${{ github.sha }}
+          provenance: false
+          sbom: false
+          cache-from: type=gha,scope=${{ matrix.service }}
+      - name: Report the image
+        if: github.event_name != 'pull_request'
+        shell: bash
+        env:
+          IMAGE: ${{ steps.name.outputs.repo }}:${{ github.sha }}
+          DIGEST: ${{ steps.build.outputs.digest }}
+          SERVICE: ${{ matrix.service }}
+        run: |
+          echo "IMAGE=$IMAGE"
+          echo "DIGEST=$DIGEST"
+          {
+            echo "### Image of ${SERVICE}"
+            echo '```'
+            echo "$IMAGE"
+            echo "$DIGEST"
+            echo '```'
+            echo "Deploy this commit, once every line of this run is green, with: sh deploy/deploy.sh ${GITHUB_SHA}"
+          } >> "$GITHUB_STEP_SUMMARY"

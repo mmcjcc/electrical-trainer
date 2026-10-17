@@ -1,0 +1,20 @@
+# deploy/homelab.yml: what this app asks of Jason's home platform (app-broker contract 2).
+# Rules: run "ssh homelab contract" and read section 3. Check with: ssh homelab plan electrician < deploy/homelab.yml
+# The schema is closed: an unknown key is rejected. LF line ends only. One document, no anchors, aliases or tags.
+# Never put here: a tag or digest, secret values, emails or groups, Traefik labels, host ports, compose snippets.
+# Renaming the app: deploy/README.md, "Renaming".
+contract: 2
+app: electrician                       # https://electrician.apps.mmcjcc.com
+kind: container
+image: ghcr.io/mmcjcc/electrical-trainer   # pushed by .github/workflows/homelab-image.yml as :<git sha>
+uid: 10005                             # the Dockerfile's USER; the platform starts the container as this uid
+port: 8080                             # the image's default (LISTEN_PORT in docker/10-listen.sh), so env does not set it
+health: /healthz                       # 200 "ok" from nginx itself; never touches the SPA
+exposure: public                       # LAN, VPN and the internet; from outside, Google is the only sign-in door
+auth: {profile: electrician}           # the app's own user list on the platform (ssh homelab access show electrician)
+resources: {cpu: 0.25, memory: 64m}    # a static nginx with one worker
+
+# Non-secret settings, each explained at the top of its start-up hook in docker/. The app keeps no allow-list of its
+# own: the user list above decides who gets in. All it needs from the sign-in is where its Sign out link goes.
+env:
+  SIGN_OUT_URL: "https://auth.apps.mmcjcc.com/oauth2/sign_out?rd=https%3A%2F%2Felectrician.apps.mmcjcc.com%2F"

@@ -1,0 +1,43 @@
+# .dockerignore: keep secrets, history and local state out of the image (HOSTING.md section 2).
+.git
+.gitignore
+.gitattributes
+.github
+.claude
+.dockerignore
+Dockerfile
+deploy
+
+# Secrets and local settings never go into an image.
+.env
+.env.*
+*.pem
+*.key
+secrets
+
+# Local runtime data and caches. Remove the "data" line if a top-level data/ directory holds files the image needs.
+data
+.venv
+venv
+__pycache__
+**/__pycache__
+**/*.pyc
+.pytest_cache
+.mypy_cache
+.ruff_cache
+
+# This app (a Vite build in the image's build stage). The build stage needs package.json, package-lock.json,
+# index.html, public/, src/, vite.config.ts and tsconfig*.json; the runtime stage needs nginx.conf and docker/.
+# None of those may be listed here.
+node_modules
+dist
+dist-ssr
+.vite
+coverage
+docs
+*.md
+**/*.md
+*.local
+.DS_Store
+apikey*
+*.apikey
