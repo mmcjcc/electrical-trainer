@@ -60,7 +60,7 @@ export const REF = {
   boxClamps: nec('314.16(B)(2)', 'Clamp fill: all internal clamps count as one'),
   boxSupportFittings: nec('314.16(B)(3)', 'Support fittings fill: each type counts as one'),
   boxDevices: nec('314.16(B)(4)', 'Device or equipment fill: two for each yoke'),
-  boxEgc: nec('314.16(B)(5)', 'Equipment grounding conductor fill: one for all'),
+  boxEgc: nec('314.16(B)(5)', 'Equipment grounding conductor fill: one for up to four, plus 1/4 for each beyond four (2020)'),
   pullBox: nec('314.28', 'Pull and junction boxes: straight pulls 8×, angle pulls 6×'),
 
   // ---- 430 motors -------------------------------------------------------------------------------------
