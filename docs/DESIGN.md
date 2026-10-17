@@ -92,7 +92,7 @@ Recipes, v1 (each with its card, generator, worksheet, mistakes, distractors and
 |---|---|
 | basics | Ohm's law and power (single-phase); three-phase current from kVA/kW; power factor |
 | dwelling | one-family standard method (full); its slices: lighting + small appliance + laundry demand, range demand (one range, Note 1; several ranges, Note 2), dryers (Table 220.54), fixed appliances 75%; one-family optional method (220.82); multifamily optional (220.84); neutral (220.61) |
-| commercial | store/office: lighting unit load × 125%, receptacles with the non-dwelling demand, show window, sign; kitchen equipment (Table 220.56) |
+| commercial | store/office (Annex D Example D3 method): lighting by Table 220.12 unit load (in 2020 the table already includes the 125%; compare with the actual connected lighting × 125% and keep the larger), receptacles 180 VA each with the non-dwelling demand (no 125%), show window 200 VA/ft and sign 1,200 VA at 125%; single-phase ÷ 240 or three-phase ÷ (V × 1.732); kitchen equipment (Table 220.56) |
 | raceway | how many same-size wires fit (Table 4 ÷ Table 5, Note 7) and the Annex C cross-check; smallest raceway for a mix; nipples (60%) |
 | box | box fill: count the items, total the volume, pick or check the box |
 | ampacity | continuous load: 125%, standard OCPD, conductor; ampacity with temperature correction and adjustment and the terminal limit; reverse: highest ambient |

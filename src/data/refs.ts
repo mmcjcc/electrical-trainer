@@ -2,7 +2,8 @@
  * Where each concept lives in the code book, per NEC edition. Recipes and questions point here
  * instead of typing section numbers, so an edition change is one edit. `loc` is the 2020 location;
  * `byEdition['2023']` is given only where 2023 moved it. Verified against the crosswalk research
- * (docs/research/nec-crosswalk.md); rows marked `// VERIFY` are still waiting for a second source.
+ * (docs/research/nec-crosswalk.md) and the Annex D research (docs/research/annex-d-methods.md); rows
+ * marked `// VERIFY` are still waiting for a second source.
  */
 import type { CodeRef } from '@/shared/types'
 
@@ -23,6 +24,8 @@ export const REF = {
   ch9Table8: nec('Chapter 9, Table 8', 'Conductor properties (circular mils)'),
   ch9Table9: nec('Chapter 9, Table 9', 'AC resistance and reactance'),
   annexC: nec('Annex C', 'Fill tables for conductors of the same size'),
+  annexD: nec('Annex D', 'Worked load calculation examples'),
+  annexD1b: nec('Annex D, Example D1(b)', 'One-family dwelling, standard method, with A/C and 25% of the largest motor'),
   annexC_EMT: nec('Annex C, Table C.1', 'Max. number of same-size conductors in EMT'),
   annexC_FMC: nec('Annex C, Table C.3', 'Max. number of same-size conductors in FMC'),
   annexC_IMC: nec('Annex C, Table C.4', 'Max. number of same-size conductors in IMC'),
@@ -35,7 +38,7 @@ export const REF = {
   tempCorrection: nec('Table 310.15(B)(1)', 'Ambient temperature correction factors (30°C basis)', 'Table 310.15(B)(1)(1)'),
   adjustment: nec('Table 310.15(C)(1)', 'Adjustment factors for more than three current-carrying conductors'),
   neutralCounting: nec('310.15(E)', 'When the neutral counts as current-carrying'),
-  dwellingService83: nec('310.12', 'Single-phase dwelling services and feeders: 83% of the rating'),
+  dwellingService83: nec('310.12', 'Single-phase dwelling services and feeders: 83% of the rating (Table 310.12 lists sizes)'),
   terminalTemp: nec('110.14(C)', 'Temperature limitations at terminals'),
   smallConductor: nec('240.4(D)', 'Small conductors: 14 AWG 15 A, 12 AWG 20 A, 10 AWG 30 A (copper)'),
   nextSizeUp: nec('240.4(B)', 'Overcurrent devices rated 800 A or less: next higher standard rating'),
@@ -64,24 +67,24 @@ export const REF = {
   motorConductor: nec('430.22', 'Single motor: conductors at 125% of FLC'),
   motorFeeder: nec('430.24', 'Several motors: 125% of the largest plus the others'),
   motorOverload: nec('430.32(A)(1)', 'Overload: 125% (SF 1.15+ or temp rise 40°C or less), else 115%'),
-  motorOcpdTable: nec('Table 430.52', 'Max. rating of motor branch-circuit short-circuit and ground-fault protection', 'Table 430.52(C)(1)'), // VERIFY 2023
-  motorOcpdNextSize: nec('430.52(C)(1), Exception No. 1', 'Next higher standard size permitted'), // VERIFY 2023
+  motorOcpdTable: nec('Table 430.52', 'Max. rating of motor branch-circuit short-circuit and ground-fault protection', 'Table 430.52(C)(1)'),
+  motorOcpdNextSize: nec('430.52(C)(1), Exception No. 1', 'Next higher standard size permitted', '430.52(C)(1)(a)'),
   motorFeederOcpd: nec('430.62(A)', 'Motor feeder OCPD: largest branch device plus the other FLCs; do not round up'),
 
   // ---- 450 transformers ----------------------------------------------------------------------------------
   transformerOcpd: nec('Table 450.3(B)', 'Transformer overcurrent protection, 1000 V and less'),
 
-  // ---- 220 load calculations (2023 reorganized Part III; every row waits for the crosswalk) ----------------
+  // ---- 220 load calculations (2023 reorganized Part III; 2020 rows confirmed 2026-10-16) ----------------
   voltagesForCalcs: nec('220.5(A)', 'Voltages to use: 120, 120/240, 208Y/120, 240, 480Y/277, 480 ...'),
   fractionsOfAmpere: nec('220.5(B)', 'Fractions of an ampere under 0.5 may be dropped'),
-  floorArea: nec('220.11', 'Floor area: outside dimensions; not porches, garages, unfinished spaces'), // VERIFY
-  dwellingLighting: nec('220.14(J)', 'Dwelling units: 3 VA per ft² (includes general-use receptacles)', '220.41'), // VERIFY
-  nonDwellingLighting: nec('Table 220.12', 'General lighting load by non-dwelling occupancy', 'Table 220.42(A)'), // VERIFY
+  floorArea: nec('220.11', 'Floor area: outside dimensions; not open porches, garages, unfinished spaces (2023 no longer excludes garages)', '220.5(C)'),
+  dwellingLighting: nec('220.14(J)', 'Dwelling units: 3 VA per ft² (includes general-use receptacles)', '220.41'),
+  nonDwellingLighting: nec('Table 220.12', 'General lighting load by non-dwelling occupancy (the 125% for continuous load is already included)', 'Table 220.42(A)'),
   receptacleOutlets: nec('220.14(I)', 'Receptacle outlets: 180 VA per single, duplex, or triple yoke'),
   signOutlet: nec('220.14(F)', 'Sign and outline lighting outlet: 1,200 VA'),
-  showWindow: nec('220.14(G)', 'Show windows: 200 VA per linear foot'), // VERIFY
-  lightingDemand: nec('Table 220.42', 'Lighting load demand factors', 'Table 220.45'), // VERIFY
-  nonDwellingReceptacles: nec('Table 220.44', 'Demand factors for non-dwelling receptacle loads', 'Table 220.47'), // VERIFY
+  showWindow: nec('220.14(G)', 'Show windows: 200 VA per linear foot'),
+  lightingDemand: nec('Table 220.42', 'Lighting load demand factors', 'Table 220.45'),
+  nonDwellingReceptacles: nec('Table 220.44', 'Demand factors for non-dwelling receptacle loads', 'Table 220.47'),
   smallAppliance: nec('220.52(A)', 'Small-appliance circuits: 1,500 VA each'),
   laundry: nec('220.52(B)', 'Laundry circuit: 1,500 VA'),
   fixedAppliances: nec('220.53', 'Fastened-in-place appliances: 75% when four or more'),
@@ -92,7 +95,7 @@ export const REF = {
   kitchenEquipment: nec('Table 220.56', 'Demand factors for commercial kitchen equipment'),
   noncoincident: nec('220.60', 'Noncoincident loads: keep the larger of heat and A/C'),
   neutralLoad: nec('220.61', 'Feeder or service neutral load'),
-  motorLoadCalc: nec('220.50', 'Motor loads per 430.24 (125% of the largest motor)'),
+  motorLoadCalc: nec('220.50', 'Motor loads per 430.24 (125% of the largest motor)', '220.50(A)'),
   optionalDwelling: nec('220.82', 'Optional method, one dwelling unit'),
   optionalDwellingGeneral: nec('220.82(B)', 'Optional method: general loads, first 10 kVA at 100%, remainder 40%'),
   optionalDwellingHvac: nec('220.82(C)', 'Optional method: heating and air-conditioning load'),
