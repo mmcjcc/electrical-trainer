@@ -51,7 +51,7 @@ export function buildDryers(inp: DryersIn, seed: number): ProblemInstance {
   const lines: WorkLine[] = []
   const phrase = appliancePhrase({ key: 'dryer', name: 'clothes dryer', motor: false, rating: inp.rating })
   const story =
-    `A ${inp.n}-unit apartment building has ${withArticle(phrase)} in each unit. ` +
+    `A ${inp.n}-unit apartment building is served at 120/240 V, single-phase. It has ${withArticle(phrase)} in each unit. ` +
     'Using the standard method, what is the demand load for the dryers on the service, in VA?'
 
   lines.push(given({ id: 'n', label: 'Number of dryers', say: 'Write down how many dryers there are.', value: inp.n, unit: 'count' }))

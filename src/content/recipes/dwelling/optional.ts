@@ -16,12 +16,12 @@
 import { calc, choose, fmt, makeRng, sum, type WrongValue } from '@/calc'
 import { DWELLING } from '@/data/tables'
 import { REF } from '@/data/refs'
-import { LOAD } from '@/data/loadExtra'
+import { LOAD, REF_LOAD } from '@/data/loadExtra'
 import type { Given, ProblemInstance, Recipe, Section, WorkLine } from '@/shared/types'
 import { cleanMistakes, opt, product, ruleLine, word } from '../kit'
 import { DRYER_RATINGS, pickAppliances, RANGE_KW_SINGLE } from './catalog'
 import {
-  ampsLine, appliancePhrase, circuitsText, clean, lightingLines, lightingNums, listJoin, loc, ratingVA, singleRangeNums,
+  ampsLine, appliancePhrase, capFirst, circuitsText, clean, lightingLines, lightingNums, listJoin, loc, ratingVA, singleRangeNums,
   sizeChoices, sizeFor, sizeLine, sizeStable, vaLine, withArticle, wrongsFrom, type Appliance, type LightingIn, type Rating,
 } from './common'
 import { GARAGES, PORCH_FT2, standardNums, type StandardIn } from './standard'
@@ -120,7 +120,9 @@ export function optionalNums(inp: OptionalIn, f: OptionalFlags = {}): OptionalNu
   const sorted = [...selections].sort((a, b) => b.va - a.va)
   const keep = sorted[0]?.key
   let hvac = sorted[0]?.va ?? 0
-  if (f.bothHvac && sorted.length > 1) hvac = selections.reduce((s, x) => s + x.va, 0)
+  // "Added both" exists only for a separate A/C and heat. A heat pump's cooling and heating choices share
+  // one compressor, so adding them would count it twice: not a slip a student makes (review 2026-10-17).
+  if (f.bothHvac && inp.heat && inp.ac) hvac = acVA + heatSel
   if (f.smallerHvac && sorted.length > 1) hvac = sorted[sorted.length - 1]?.va ?? hvac
   if (f.hvacInPile) hvac = 0
 
@@ -278,12 +280,27 @@ export function buildOptional(inp: OptionalIn, seed: number): ProblemInstance {
   const ln = lightingNums(li)
   const range = isSingleRange(inp.cooking) ? inp.cooking[0] : undefined
   const np = inp.dryer ? ratingVA(inp.dryer) : 0
+  // The standard-method rules that would change THIS house (the texts name only these; review 2026-10-17).
+  const stdRules = [range && `the ${loc(REF.rangeTable)} range demand`, np > 0 && np < DWELLING.dryerMinVA && 'the 5,000 VA dryer floor']
+    .filter((x): x is string => !!x)
+  const stdText = listJoin(stdRules)
+  const hvacNames = [inp.heat && 'the electric heat', inp.heatPump && 'the heat pump and its backup heat', inp.ac && 'the A/C']
+    .filter((x): x is string => !!x)
+  const hvacText = listJoin(hvacNames)
 
   // ---- G: general loads at nameplate --------------------------------------------------------------------
-  // The first five lines (area to laundry) are the same as the standard method's; the demand differs.
+  // The first five lines (area to laundry) are the same as the standard method's, but in the optional
+  // method they are 220.82(B)(1) and (B)(2) (review 2026-10-17); the demand differs.
   const L = lightingLines(li, 'G')
   const lPart = L.lines.filter((l) => ['area', 'glVA', 'saCount', 'saVA', 'laundryVA'].includes(l.id))
-  for (const l of lPart) if (l.id === 'glVA') l.ref = REF.optionalDwellingGeneral
+  for (const l of lPart) {
+    if (l.id === 'area') {
+      l.ref = REF_LOAD.optionalFloorArea
+      l.why = `${loc(REF_LOAD.optionalFloorArea)}: 3 VA per square foot of floor area, measured as in ${loc(REF.floorArea)} (no open porches, garages or unfinished spaces).`
+    }
+    if (l.id === 'glVA') l.ref = REF_LOAD.optionalFloorArea
+    if (l.id === 'saVA' || l.id === 'laundryVA') l.ref = REF_LOAD.optionalCircuits
+  }
   lines.push(...lPart)
   const parts: number[] = [ln.glVA, ln.saVA, ...(li.laundry ? [ln.laundryVA] : [])]
   for (const c of inp.cooking) {
@@ -323,13 +340,13 @@ export function buildOptional(inp: OptionalIn, seed: number): ProblemInstance {
   }
   lines.push(sum({
     id: 'gTotal', label: 'General loads, total',
-    say: 'Add every general load at its nameplate. Leave the heat and the A/C out of this pile.',
+    say: `Add every general load at its nameplate.${hvacNames.length ? ` Leave ${hvacText} out of this pile.` : ''}`,
     why: 'Heat and A/C are handled on their own, after the 40% step.',
     ref: REF.optionalDwellingGeneral,
     parts, unit: 'VA', section: 'G',
     mistakes: cleanMistakes(N.pile, undefined, [
-      { value: T({ standardRules: true }).pile, mistake: 'optional_used_standard_rules', message: 'Use nameplates here: no range table and no 5,000 VA dryer floor.' },
-      { value: T({ hvacInPile: true }).pile, mistake: 'optional_hvac_in_pile', message: 'Leave the heat and A/C out of this pile. They are added after the 40% step.' },
+      stdRules.length > 0 && { value: T({ standardRules: true }).pile, mistake: 'optional_used_standard_rules', message: `The optional method uses nameplates: not ${stdText}.` },
+      hvacNames.length > 0 && { value: T({ hvacInPile: true }).pile, mistake: 'optional_hvac_in_pile', message: `Leave ${hvacText} out of this pile. They are added after the 40% step.` },
       { value: N.pile - ln.saVA - ln.laundryVA, mistake: 'missed_small_appliance', message: 'Add the small-appliance and laundry circuits at 1,500 VA each.' },
     ]),
   }))
@@ -478,7 +495,8 @@ export function buildOptional(inp: OptionalIn, seed: number): ProblemInstance {
       value: N.hvac, unit: 'VA',
       expr: `largest of ${selText.join(', ')} → ${fmt(N.hvac)}`,
       mistakes: cleanMistakes(N.hvac, undefined, [
-        { value: N.selections.reduce((s, x) => s + x.va, 0), mistake: 'added_both_heat_and_ac', message: 'Do not add them. Keep only the largest choice.' },
+        inp.heat && inp.ac && { value: N.acSel + N.heatSel, mistake: 'added_both_heat_and_ac', message: 'Do not add them. Keep only the largest choice.' },
+        inp.heatPump && { value: T({ suppAt100: true }).hpSel, mistake: 'optional_heat_pct', message: 'With the heat pump, the backup heat counts at 65%, not 100%.' },
         { value: smaller, mistake: 'used_smaller_noncoincident', message: 'That is the smaller choice. Keep the LARGEST.' },
         inp.heat && { value: Math.max(N.acSel, N.heatVA), mistake: 'optional_heat_pct', message: 'Compare the heat at its percent (65% or 40%), not at 100%.' },
       ]),
@@ -494,11 +512,12 @@ export function buildOptional(inp: OptionalIn, seed: number): ProblemInstance {
     say: N.hvac > 0 ? 'Add the general loads after demand and the heat or A/C.' : 'The general loads after demand are the whole load.',
     parts: N.hvac > 0 ? [N.general, N.hvac] : [N.general], unit: 'VA', section: 'A',
     mistakes: cleanMistakes(N.total, undefined, [
-      { value: T({ standardRules: true }).total, mistake: 'optional_used_standard_rules', message: 'Bucket G: the optional method uses nameplates (no range table, no 5,000 VA dryer floor).' },
-      { value: T({ hvacInPile: true }).total, mistake: 'optional_hvac_in_pile', message: 'The heat and A/C go in after the 40% step, not in the pile.' },
+      stdRules.length > 0 && { value: T({ standardRules: true }).total, mistake: 'optional_used_standard_rules', message: `Bucket G: the optional method uses nameplates, not ${stdText}.` },
+      hvacNames.length > 0 && { value: T({ hvacInPile: true }).total, mistake: 'optional_hvac_in_pile', message: `${capFirst(hvacText)} go${hvacNames.length === 1 && !inp.heatPump ? 'es' : ''} in after the 40% step, not in the pile.` },
       { value: T({ whole40: true }).total, mistake: 'demand_on_whole_load', message: 'Bucket G: the 40% goes only on the part over 10,000 VA.' },
       inp.heat && { value: T({ heat100: true }).total, mistake: 'optional_heat_pct', message: 'Bucket H: the heat goes in at 65% or 40%, not 100%.' },
-      N.selections.length > 1 && { value: T({ bothHvac: true }).total, mistake: 'added_both_heat_and_ac', message: 'Bucket H: keep only the largest heat or A/C choice.' },
+      inp.heatPump && { value: T({ suppAt100: true }).total, mistake: 'optional_heat_pct', message: 'Bucket H: the heat pump\'s backup heat goes in at 65%, not 100%.' },
+      inp.heat && inp.ac && { value: T({ bothHvac: true }).total, mistake: 'added_both_heat_and_ac', message: 'Bucket H: keep only the largest heat or A/C choice.' },
       N.selections.length > 1 && { value: T({ smallerHvac: true }).total, mistake: 'used_smaller_noncoincident', message: 'Bucket H: you kept a smaller choice.' },
     ]),
   }))
@@ -516,12 +535,13 @@ export function buildOptional(inp: OptionalIn, seed: number): ProblemInstance {
   const S = (f: OptionalFlags) => optionalNums(inp, f).service
   const wrongs: WrongValue[] = wrongsFrom(N.service, [
     std && { value: standardNums(std).service, mistake: 'optional_used_standard_rules', why: 'This is the standard-method answer. The question asks for the optional method.' },
-    { value: S({ standardRules: true }), mistake: 'optional_used_standard_rules', why: 'Used the range table or the 5,000 VA dryer floor inside the optional method.' },
+    stdRules.length > 0 && { value: S({ standardRules: true }), mistake: 'optional_used_standard_rules', why: `Used ${stdText} inside the optional method; it takes nameplates.` },
     { value: S({ by120: true }), mistake: 'wrong_voltage', why: 'Divided by 120 V instead of 240 V.' },
-    { value: S({ hvacInPile: true }), mistake: 'optional_hvac_in_pile', why: 'Put the heat and A/C in the 10 kVA pile at 100%.' },
+    hvacNames.length > 0 && { value: S({ hvacInPile: true }), mistake: 'optional_hvac_in_pile', why: `Put ${hvacText} in the 10 kVA pile at 100%.` },
     { value: S({ whole40: true }), mistake: 'demand_on_whole_load', why: 'Took 40% of the whole pile instead of only the part over 10 kVA.' },
     inp.heat && { value: S({ heat100: true }), mistake: 'optional_heat_pct', why: 'Took the heat at 100%; the optional method uses 65% or 40%.' },
-    N.selections.length > 1 && { value: S({ bothHvac: true }), mistake: 'added_both_heat_and_ac', why: 'Added the heat and the A/C; keep only the largest.' },
+    inp.heatPump && { value: S({ suppAt100: true }), mistake: 'optional_heat_pct', why: 'Took the heat pump\'s backup heat at 100%; it counts at 65%.' },
+    inp.heat && inp.ac && { value: S({ bothHvac: true }), mistake: 'added_both_heat_and_ac', why: 'Added the heat and the A/C; keep only the largest.' },
     { value: S({ noMin100: true }), mistake: 'service_min_100', why: 'Went below the 100 A minimum for a one-family house.' },
   ])
 

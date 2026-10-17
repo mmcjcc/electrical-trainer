@@ -281,7 +281,7 @@ export const MISTAKES = {
   },
   range_major_fraction: {
     title: 'Rounded the kW over 12 the wrong way',
-    lesson: 'For a big range, count each whole kW over 12, plus one more for a major fraction (more than half a kW). A smaller fraction is dropped.',
+    lesson: 'For a big range, count each whole kW over 12. Half a kW or more (0.5 and up) counts as one more kW; less than half is dropped.',
   },
   range_wrong_column: {
     title: 'Read the wrong column of the range table',
@@ -304,8 +304,8 @@ export const MISTAKES = {
     lesson: 'A demand table cuts the connected load down (lighting, receptacles, dryers, kitchen equipment, apartments). Apply it before the bucket goes into the total.',
   },
   appliance_excluded_counted: {
-    title: 'Counted the range, dryer, heat or A/C as a fastened-in-place appliance',
-    lesson: 'The 75% rule leaves out ranges and other cooking units, dryers, space heating and air conditioning. They have their own lines.',
+    title: 'Counted cooking, a dryer, heat or A/C as a fastened-in-place appliance',
+    lesson: 'The 75% rule counts appliances of 1/4 hp or 500 W and up, but never household cooking equipment fastened in place (ranges, wall ovens, cooktops), dryers, space heating or A/C. They have their own lines.',
   },
   service_min_100: {
     title: 'Went below the 100 A minimum service',
@@ -313,7 +313,7 @@ export const MISTAKES = {
   },
   motor25_wrong_motor: {
     title: 'Took 25% of the wrong motor',
-    lesson: 'The extra 25% goes on the largest motor still in the calculation: the A/C compressor when the A/C is kept, otherwise the biggest motor appliance.',
+    lesson: 'The largest motor counts at 125%. When the A/C is kept it is that motor (compared with the heat at 125%); when the heat wins, the extra 25% goes on the biggest motor appliance left.',
   },
   optional_used_standard_rules: {
     title: 'Used standard-method rules in the optional method',
@@ -362,6 +362,10 @@ export const MISTAKES = {
   left_out_load: {
     title: 'Left a load out of the total',
     lesson: 'Before you add, tick off every load in the question so none is left behind.',
+  },
+  office_receptacle_minimum: {
+    title: 'Missed the office receptacle minimum',
+    lesson: 'Banks and office buildings: the receptacle load is the larger of the receptacles after demand and 1 VA per square foot.',
   },
 
   // ---- fallback ---------------------------------------------------------------------------------------

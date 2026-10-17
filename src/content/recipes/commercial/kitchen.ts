@@ -9,6 +9,7 @@
 import { calc, fmt, given, lookup, makeRng, numericChoices, sum, type WrongValue } from '@/calc'
 import { kitchenDemandPct } from '@/data/tables'
 import { REF } from '@/data/refs'
+import { REF_LOAD } from '@/data/loadExtra'
 import type { Given, ProblemInstance, Recipe, WorkLine } from '@/shared/types'
 import { cleanMistakes, ruleLine, word } from '../kit'
 import { clean, listJoin, loc, withArticle, wrongsFrom } from '../dwelling/common'
@@ -82,11 +83,14 @@ export function buildKitchen(inp: KitchenIn, seed: number): ProblemInstance {
   })
   lines.push(sum({
     id: 'kSum', label: 'Kitchen equipment, total',
-    say: inp.vent ? 'Add the kitchen equipment. Leave out the exhaust fan: ventilation is not in this table.' : 'Add the kitchen equipment.',
-    ref: REF.kitchenEquipment,
+    say: 'Add the kitchen equipment: commercial cooking, dishwashing and water-heating equipment with thermostatic control or intermittent use.' +
+      (inp.vent ? ' Leave out the exhaust fan: ventilating equipment is not part of this rule.' : ''),
+    why: `${loc(REF_LOAD.kitchenSection)} covers commercial electric cooking equipment, dishwasher booster heaters, water heaters and other kitchen equipment that has thermostatic control or is used intermittently. It does not apply to space-heating, ventilating or A/C equipment.`,
+    // The exclusions are in the text of 220.56, not in its table (review 2026-10-17).
+    ref: REF_LOAD.kitchenSection,
     parts: inp.items.map((x) => x.kw), unit: 'kW',
     mistakes: cleanMistakes(K.total, undefined, [
-      inp.vent && { value: clean(K.total + inp.vent.kw), mistake: 'kitchen_counted_hvac', message: 'Leave out the exhaust fan: the kitchen table does not cover ventilating equipment.' },
+      inp.vent && { value: clean(K.total + inp.vent.kw), mistake: 'kitchen_counted_hvac', message: `Leave out the exhaust fan: ${loc(REF_LOAD.kitchenSection)} does not apply to ventilating equipment.` },
     ]),
   }))
   lines.push(ruleLine({
@@ -122,14 +126,15 @@ export function buildKitchen(inp: KitchenIn, seed: number): ProblemInstance {
   lines.push(sum({
     id: 'kTwo', label: 'The two largest together',
     say: `Add the two largest units: ${fmt(sorted[0]?.kw ?? 0)} + ${fmt(sorted[1]?.kw ?? 0)}.`,
-    why: 'The table has a floor: the demand can never be less than the two biggest units running together.',
-    ref: REF.kitchenEquipment,
+    why: `${loc(REF_LOAD.kitchenSection)} sets a floor: the demand is never less than the two largest kitchen loads together.`,
+    ref: REF_LOAD.kitchenSection,
     parts: [sorted[0]?.kw ?? 0, sorted[1]?.kw ?? 0], unit: 'kW',
   }))
   lines.push(ruleLine({
     id: 'kResult', label: 'Kitchen demand load',
     say: 'Keep the larger: the total at the demand factor, or the two largest together.',
-    ref: REF.kitchenEquipment,
+    why: `${loc(REF_LOAD.kitchenSection)}: never less than the sum of the two largest kitchen equipment loads.`,
+    ref: REF_LOAD.kitchenSection,
     value: K.result, unit: 'kW', decimals: 3, tol: { abs: 0.001 },
     expr: `larger of ${fmt(K.demand)} and ${fmt(K.two)} → ${fmt(K.result)}`,
     mistakes: cleanMistakes(K.result, undefined, [
@@ -183,10 +188,10 @@ export const commercialKitchen: Recipe = {
   card: {
     whenToUse: 'The question lists the electric equipment of a restaurant or commercial kitchen and asks for its demand load.',
     steps: [
-      { label: 'Add', how: 'Add the kitchen equipment nameplates (not exhaust fans, heat or A/C).', ref: REF.kitchenEquipment },
+      { label: 'Add', how: 'Add the kitchen equipment nameplates (thermostatic or intermittent use; not exhaust fans, heat or A/C).', ref: REF_LOAD.kitchenSection },
       { label: 'Count', how: 'Count the units.', ref: REF.kitchenEquipment },
       { label: 'Percent', how: '3 units 90%, 4 units 80%, 5 units 70%, 6 or more 65%.', ref: REF.kitchenEquipment },
-      { label: 'Floor', how: 'Never less than the two largest units together.', ref: REF.kitchenEquipment },
+      { label: 'Floor', how: 'Never less than the two largest units together.', ref: REF_LOAD.kitchenSection },
     ],
     traps: [
       'One or two units: no demand factor.',

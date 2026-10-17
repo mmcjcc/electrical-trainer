@@ -52,17 +52,36 @@ export interface Appliance {
   rating: Rating
   /** Motor-driven (counts for "25% of the largest motor"). */
   motor: boolean
-  /** Horsepower as printed ("1/2"); motor appliances state it so the 1/4 hp threshold is plain. */
+  /**
+   * Horsepower, kept only so the catalog can order motors (hp order = VA order). Stories never print
+   * it: with both hp and amps a reader could argue for the Table 430.248 current, so a motor appliance
+   * is given in amps × volts only, as Annex D Example D1(b) does (review 2026-10-17).
+   */
   hp?: string
 }
 
-/** The words of the story that state the appliance: "4.5-kW water heater", "1/2-hp ... rated 8 A at 120 V". */
+/** The words of the story that state the appliance: "4.5-kW water heater", "food waste disposer rated 8 A at 120 V". */
 export function appliancePhrase(a: Appliance): string {
   const r = a.rating
   if (r.kind === 'kW') return `${fmt(r.kw)}-kW ${a.name}`
   if (r.kind === 'W') return `${fmt(r.w)}-W ${a.name}`
-  return `${a.hp ? `${a.hp}-hp ` : ''}${a.name} rated ${fmt(r.amps)} A at ${r.volts} V`
+  return `${a.name} rated ${fmt(r.amps)} A at ${r.volts} V`
 }
+
+/** 2020 220.53 in plain words: what counts toward "four or more" and what never does. */
+export const FIXED_RULE_SAY =
+  'Count only fastened-in-place appliances rated 1/4 hp or more, or 500 W or more. Household cooking equipment fastened in place (ranges, wall ovens, cooktops), clothes dryers, space heating and A/C never count.'
+export const FIXED_RULE_WHY =
+  `${loc(REF.fixedAppliances)} (2020) lets you take 75% of four or more fastened-in-place appliances rated 1/4 hp or 500 W and up on the same feeder or service. It leaves out household cooking equipment that is fastened in place, clothes dryers, space-heating equipment and A/C equipment: those have their own rules.`
+
+/** "the range, the dryer and the A/C" with a capital first letter. */
+export function capFirst(s: string): string {
+  return s.charAt(0).toUpperCase() + s.slice(1)
+}
+
+/** Why an appliance line uses the nameplate (and not the motor tables). */
+export const NAMEPLATE_WHY =
+  `An appliance counts at its nameplate rating. A listed motor-operated appliance marked with its current uses that marked current (${loc(REF.motorFlcUse)}, Exception No. 3), not the motor tables.`
 
 /** "a 4.5-kW ..." / "an 8-kW ..." / "an 11-kW ..." / "an 18,000-W ...". */
 export function withArticle(phrase: string): string {
@@ -84,7 +103,7 @@ export function vaLine(id: string, label: string, r: Rating, section?: string, e
   const va = ratingVA(r)
   if (r.kind === 'W') {
     return given({
-      id, label, why,
+      id, label, why: why ?? `${NAMEPLATE_WHY} Watts on the nameplate are taken as VA.`,
       say: `Read the nameplate from the question. ${fmt(r.w)} W counts as ${fmt(r.w)} VA.`,
       value: r.w, unit: 'VA', section,
       mistakes: cleanMistakes(va, { rel: 0 }, extra),
@@ -92,7 +111,7 @@ export function vaLine(id: string, label: string, r: Rating, section?: string, e
   }
   if (r.kind === 'kW') {
     return calc({
-      id, label, why: why ?? 'Kilo means thousand. Every line of a load calculation is in VA.',
+      id, label, why: why ?? `${NAMEPLATE_WHY} Kilo means thousand, and every line of a load calculation is in VA.`,
       say: `Change kW to VA: ${fmt(r.kw)} × 1,000.`,
       a: r.kw, op: '×', b: 1000, unit: 'VA', section,
       mistakes: cleanMistakes(va, undefined, [
@@ -103,7 +122,7 @@ export function vaLine(id: string, label: string, r: Rating, section?: string, e
   }
   const other = r.volts === 240 ? 120 : 240
   return calc({
-    id, label, why: why ?? 'Volt-amperes are just what the name says: volts times amperes.',
+    id, label, why: why ?? `${NAMEPLATE_WHY} Volt-amperes are just what the name says: volts × the nameplate amperes.`,
     say: `Amps × volts gives VA: ${fmt(r.amps)} × ${r.volts}.`,
     a: r.amps, op: '×', b: r.volts, unit: 'VA', section,
     mistakes: cleanMistakes(va, undefined, [
@@ -235,8 +254,8 @@ export function lightingLines(inp: LightingIn, section: string): { lines: WorkLi
   lines.push(sum({
     id: 'lTotal', label: 'Lighting, small appliances and laundry',
     say: inp.laundry ? 'Add the lighting, the small-appliance circuits and the laundry circuit.' : 'Add the lighting and the small-appliance circuits.',
-    why: 'They go through the demand table together, as one number.',
-    ref: REF.lightingDemand,
+    why: `${loc(REF_LOAD.smallApplianceAndLaundry)} adds the small-appliance and laundry circuits to the general lighting, and they go through ${loc(REF.lightingDemand)} together, as one number.`,
+    ref: REF_LOAD.smallApplianceAndLaundry,
     parts, unit: 'VA', section,
     mistakes: cleanMistakes(n.total, undefined, [
       { value: n.glVA + n.laundryVA, mistake: 'missed_small_appliance', message: `Add the small-appliance circuits too: ${inp.saCircuits} × 1,500 = ${fmt(n.saVA)} VA.` },
@@ -286,10 +305,14 @@ export function lightingLines(inp: LightingIn, section: string): { lines: WorkLi
 // R: household ranges, Table 220.55
 // ---------------------------------------------------------------------------------------------
 
+/** The "major fraction" rule, said the same way on every line (review 2026-10-17). */
+export const MAJOR_FRACTION_RULE =
+  'Count each whole kW over 12. Half a kW or more (0.5 and up) counts as one more kW; less than half is dropped.'
+
 /**
- * Note 1 counting: the whole kW over 12, plus one for a major fraction. The generators never produce
- * a fraction near one half (whether exactly 0.5 is "major" is argued), so the answer key does not
- * depend on that reading; this function takes 0.5 as major, as the Annex D research reads it.
+ * Note 1 (and Note 2) counting: the whole kW over 12, plus one for a major fraction, taken as half a
+ * kW or more (the reading of the Annex D research and the architect's ruling). The generators still
+ * never produce a fraction near one half, so the answer key does not hang on that reading.
  */
 export function note1Steps(excessKW: number): number {
   const x = clean(excessKW)
@@ -302,6 +325,12 @@ export function note1StepsWrong(excessKW: number): number {
   const x = clean(excessKW)
   const whole = Math.floor(x + 1e-9)
   return note1Steps(x) === whole ? whole + 1 : whole
+}
+
+/** True when a kW excess has a fraction to round (13.6 − 12 = 1.6 does; 13 − 12 = 1 does not). */
+export function hasFraction(excessKW: number): boolean {
+  const x = clean(excessKW)
+  return Math.abs(x - Math.round(x)) > 1e-9
 }
 
 /** True when a kW excess is safely away from the half (no "is 0.5 a major fraction?" argument). */
@@ -344,17 +373,26 @@ export function standardRangeVA(kw: number): number {
   throw new Error(`range ${kw} kW is below Column B`)
 }
 
+/** Table 220.55 Note 1 (ranges of the same rating) or Note 2 (unequal ratings, by their average). */
+export type RangeNote = 1 | 2
+
+export function noteRef(note: RangeNote): CodeRef {
+  return note === 2 ? REF_LOAD.rangeNote2 : REF_LOAD.rangeNote1
+}
+
 /** The choose line "over 12 kW?" (shared by the single and multiple range recipes). */
-export function over12Line(id: string, subject: string, over: boolean, section?: string): WorkLine {
+export function over12Line(id: string, subject: string, over: boolean, section?: string, note: RangeNote = 1): WorkLine {
   const Subject = subject.charAt(0).toUpperCase() + subject.slice(1)
   return choose({
     id, label: 'Over 12 kW?',
     say: `Is ${subject} more than 12 kW?`,
-    why: 'Column C is written for ranges up to 12 kW. A bigger range gets more: Note 1 adds 5% for each kW over 12.',
-    ref: REF_LOAD.rangeNote1,
+    why: note === 2
+      ? 'Column C is written for ranges up to 12 kW. For ranges of unequal ratings, Note 2 adds 5% for each kW the average is over 12.'
+      : 'Column C is written for ranges up to 12 kW. A bigger range gets more: Note 1 adds 5% for each kW over 12.',
+    ref: noteRef(note),
     options: [
       opt('no', '12 kW or less: use Column C as it is',
-        over ? `${Subject} is over 12 kW, so Note 1 raises the Column C value.` : undefined, over ? 'range_note1' : undefined),
+        over ? `${Subject} is over 12 kW, so Note ${note} raises the Column C value.` : undefined, over ? 'range_note1' : undefined),
       opt('yes', 'Over 12 kW: Column C plus 5% per kW over 12',
         over ? undefined : `${Subject} is not over 12 kW. Column C applies as it is.`, over ? undefined : 'range_note1'),
     ],
@@ -364,16 +402,20 @@ export function over12Line(id: string, subject: string, over: boolean, section?:
 }
 
 /**
- * The Note 1 lines on top of a Column C value: kW over 12, the steps, the percent, the raised demand.
- * `base` is the Column C value (kW), `rating` the range rating or the average (kW).
+ * The Note 1 (or Note 2) lines on top of a Column C value: kW over 12, the steps, the percent, the
+ * raised demand. `base` is the Column C value (kW), `rating` the range rating or the average (kW,
+ * already rounded the way its own line shows it, so the next line subtracts the number he sees).
  */
 export function note1Lines(p: {
   rating: number; base: number; section?: string; ids?: { excess: string; steps: string; pct: string; demand: string }
   /** Extra mistakes for the demand line (most specific first). */
   demandMistakes?: MaybeMistake[]
   ratingWord: string
+  note?: RangeNote
 }): { lines: WorkLine[]; excess: number; steps: number; pct: number; demand: number } {
   const ids = p.ids ?? { excess: 'rangeExcess', steps: 'rangeSteps', pct: 'rangePct', demand: 'rangeDemandKW' }
+  const note = p.note ?? 1
+  const ref = noteRef(note)
   const excess = clean(p.rating - LOAD.rangeColCMaxKW)
   const steps = note1Steps(excess)
   const wrongSteps = note1StepsWrong(excess)
@@ -384,37 +426,35 @@ export function note1Lines(p: {
   lines.push(calc({
     id: ids.excess, label: 'kW over 12',
     say: `Subtract 12 from the ${p.ratingWord}: ${fmt(p.rating)} − 12.`,
-    ref: REF_LOAD.rangeNote1,
+    ref,
     a: p.rating, op: '−', b: LOAD.rangeColCMaxKW, unit: 'kW', section: p.section,
   }))
-  const isWhole = Math.abs(excess - Math.round(excess)) < 1e-9
+  const isWhole = !hasFraction(excess)
   lines.push(ruleLine({
     id: ids.steps, label: 'Whole kW counted',
-    say: isWhole
-      ? `${fmt(excess)} is already a whole number of kW: count ${steps}.`
-      : 'Count each whole kW over 12. A major fraction (0.6, 0.7, 0.8 ...) counts as one more kW; 0.1 to 0.4 is dropped.',
-    why: 'Note 1 says "each kW or major fraction of a kW": a big piece of a kW counts as a whole one, a small piece does not.',
-    ref: REF_LOAD.rangeNote1,
+    say: isWhole ? `${fmt(excess)} is already a whole number of kW: count ${steps}.` : MAJOR_FRACTION_RULE,
+    why: `Note ${note} counts each kW, or major fraction of a kW, over 12: half a kW or more counts as a whole one, less than half does not.`,
+    ref,
     value: steps, unit: 'count',
     expr: `${fmt(excess)} kW → ${steps}`,
     mistakes: isWhole ? [] : cleanMistakes(steps, { abs: 0 }, [
       { value: wrongSteps, mistake: 'range_major_fraction', message: wrongSteps > steps
-        ? `${fmt(excess)} has a small fraction (under half a kW): drop it and count ${steps}.`
-        : `${fmt(excess)} has a major fraction (more than half a kW): it counts as one more, ${steps}.` },
+        ? `${fmt(excess)} has less than half a kW past the whole number: drop it and count ${steps}.`
+        : `${fmt(excess)} has half a kW or more past the whole number: it counts as one more, ${steps}.` },
     ]),
     section: p.section, checkpoint: !isWhole,
   }))
   if (steps === 0) {
-    // Over 12 kW by less than a major fraction: Note 1 adds nothing. One result line, no 0% line.
+    // Over 12 kW by less than half a kW: the note adds nothing. One result line, no 0% line.
     const wrongDemand = clean(p.base * (1 + LOAD.rangeNote1PctPerKW / 100))
     lines.push(ruleLine({
       id: ids.demand, label: 'Range demand (no increase)',
-      say: `${fmt(excess)} kW is less than a major fraction, so Note 1 adds nothing: the demand stays ${fmt(p.base)} kW.`,
-      ref: REF_LOAD.rangeNote1,
+      say: `${fmt(excess)} kW is less than half a kW, so Note ${note} adds nothing: the demand stays ${fmt(p.base)} kW.`,
+      ref,
       value: p.base, unit: 'kW',
       expr: `0 kW counted → ${fmt(p.base)} kW`,
       mistakes: cleanMistakes(p.base, undefined, [
-        { value: wrongDemand, mistake: 'range_major_fraction', message: `${fmt(excess)} kW is a small fraction: it is dropped, so there is no 5% increase.` },
+        { value: wrongDemand, mistake: 'range_major_fraction', message: `${fmt(excess)} kW is less than half a kW: it is dropped, so there is no 5% increase.` },
         ...(p.demandMistakes ?? []),
       ]),
       section: p.section, checkpoint: true,
@@ -424,20 +464,21 @@ export function note1Lines(p: {
   lines.push(calc({
     id: ids.pct, label: 'Percent increase',
     say: `5% for each kW counted: ${steps} × 5.`,
-    ref: REF_LOAD.rangeNote1,
+    ref,
     a: steps, op: '×', b: LOAD.rangeNote1PctPerKW, unit: 'pct', section: p.section,
   }))
   lines.push(calc({
-    id: ids.demand, label: 'Range demand with Note 1',
+    id: ids.demand, label: `Range demand with Note ${note}`,
     say: `Raise the Column C value by ${pct}%: multiply ${fmt(p.base)} kW by ${fmt(mult)} (100% + ${pct}%).`,
     why: `${pct}% more means × ${fmt(mult)}. Multiplying by ${fmt(pct / 100)} would give only the increase.`,
-    ref: REF_LOAD.rangeNote1,
+    ref,
     a: p.base, op: '×', b: mult, unit: 'kW',
     mistakes: cleanMistakes(demand, undefined, [
       { value: p.base, mistake: 'range_note1', message: `Over 12 kW, Column C is raised ${pct}%: ${fmt(p.base)} × ${fmt(mult)}.` },
       ...(p.demandMistakes ?? []),
       { value: clean(p.base * (pct / 100)), mistake: 'range_note1', message: `${fmt(p.base * (pct / 100))} kW is only the increase. Multiply by ${fmt(mult)} (100% + ${pct}%) to get the whole demand.` },
-      wrongSteps !== steps && { value: clean(p.base * (1 + (wrongSteps * LOAD.rangeNote1PctPerKW) / 100)), mistake: 'range_major_fraction', message: `Count ${steps} kW over 12, not ${wrongSteps}: that makes ${pct}%.` },
+      // Only a real fraction can be rounded the wrong way.
+      !isWhole && { value: clean(p.base * (1 + (wrongSteps * LOAD.rangeNote1PctPerKW) / 100)), mistake: 'range_major_fraction', message: `Count ${steps} kW over 12, not ${wrongSteps}: that makes ${pct}%.` },
     ]),
     section: p.section, checkpoint: true,
   }))
@@ -490,7 +531,7 @@ export function rangeLines(kw: number, section: string | undefined, toVA: boolea
       mistakes: cleanMistakes(n.demandVA, undefined, [
         { value: clean(kw * 1000), mistake: 'range_nameplate', message: `That is the nameplate in VA. Use the demand from ${loc(REF.rangeTable)}: ${fmt(n.demandKW)} kW.` },
         n.over && n.steps > 0 && { value: 8000, mistake: 'range_note1', message: `Over 12 kW, the 8 kW is raised by Note 1: use ${fmt(n.demandKW)} kW.` },
-        n.over && { value: clean(8000 * (1 + (note1StepsWrong(n.excess) * LOAD.rangeNote1PctPerKW) / 100)), mistake: 'range_major_fraction', message: `Count ${n.steps} kW over 12 (a major fraction counts, a small one is dropped): ${fmt(n.demandKW)} kW.` },
+        n.over && hasFraction(n.excess) && { value: clean(8000 * (1 + (note1StepsWrong(n.excess) * LOAD.rangeNote1PctPerKW) / 100)), mistake: 'range_major_fraction', message: `Count ${n.steps} kW over 12 (half a kW or more counts as one more; less is dropped): ${fmt(n.demandKW)} kW.` },
         { value: n.demandKW, mistake: 'kilo_conversion', message: `${fmt(n.demandKW)} is in kW. Multiply by 1,000 for VA.` },
       ]),
     }))
@@ -576,10 +617,12 @@ export function sizeLine(p: { id: string; label: string; amps: number; min?: num
   return ruleLine({
     id: p.id, label: p.label,
     say: p.say ?? (p.min !== undefined
-      ? `Pick the next standard size at or above ${ampsText} A. A one-family house is never less than ${p.min} A.`
-      : `Pick the next standard size at or above ${ampsText} A.`),
-    why: `Standard sizes: 100, 110, 125, 150, 175, 200, 225, 250 ... (${loc(REF.standardOcpd)}). The rating must carry the load, so go UP.`,
-    ref: p.ref ?? (p.min !== undefined ? REF.minServiceDwelling : REF.standardOcpd),
+      ? `In the standard sizes of ${loc(REF.standardOcpd)}, pick the next one at or above ${ampsText} A. A one-family house service is never less than ${p.min} A (${loc(REF.minServiceDwelling)}).`
+      : `In the standard sizes of ${loc(REF.standardOcpd)}, pick the next one at or above ${ampsText} A.`),
+    why: `Standard sizes: 100, 110, 125, 150, 175, 200, 225, 250 ... (${loc(REF.standardOcpd)}). The rating must carry the load, so go UP.` +
+      (p.min !== undefined ? ` ${loc(REF.minServiceDwelling)} only sets the floor: a one-family service is at least ${p.min} A.` : ''),
+    // The standard sizes are in 240.6(A); 230.79(C) (the 100 A floor) is named in the words (review 2026-10-17).
+    ref: p.ref ?? REF.standardOcpd,
     value, unit: 'A',
     expr: `${ampsText} A → ${value} A`,
     mistakes: cleanMistakes(value, undefined, [

@@ -53,6 +53,13 @@ export const LOAD = {
   multifamilyMinUnits: 3,
   /** Table 220.56: three or more units get a demand factor; never less than the two largest together. */
   kitchenMinUnits: 3,
+  /** 220.14(K): banks and office buildings, receptacle load at least 1 VA per ft² (11 VA/m²). */
+  officeReceptacleVAperFt2: 1,
+  /**
+   * 220.60 (2020, second sentence) with 220.50 -> 430.24: when the A/C compressor is the largest motor,
+   * it is compared with the heat at 125%.
+   */
+  largestMotorPct: 125,
 } as const
 
 /**
@@ -75,10 +82,16 @@ const nec = (loc: string, title: string): CodeRef => ({ book: 'NEC', loc, title 
 export const REF_LOAD = {
   smallApplianceCircuits: nec('210.11(C)(1)', 'Dwelling: at least two 20-A small-appliance branch circuits'),
   laundryCircuit: nec('210.11(C)(2)', 'Dwelling: at least one 20-A laundry branch circuit'),
-  rangeNote1: nec('Table 220.55, Note 1', 'Ranges over 12 kW: Column C plus 5% for each kW (or major fraction) over 12'),
-  rangeNote2: nec('Table 220.55, Note 2', 'Ranges of unequal ratings: count each under 12 kW as 12 kW, then average'),
+  rangeNote1: nec('Table 220.55, Note 1', 'Ranges of the same rating over 12 kW: Column C plus 5% for each kW (or major fraction) over 12'),
+  rangeNote2: nec('Table 220.55, Note 2', 'Ranges of unequal ratings: count each under 12 kW as 12 kW, average, then 5% per kW of the average over 12'),
   spaceHeating: nec('220.51', 'Fixed electric space heating at 100%'),
   neutralReduction: nec('220.61(B)(1)', 'Neutral: range, oven, cooktop and dryer demand at 70%'),
   neutralOver200: nec('220.61(B)(2)', 'Neutral: the part over 200 A at 70%'),
   multifamilyLoads: nec('220.84(C)', 'Multifamily optional method: what goes into the connected load'),
+  smallApplianceAndLaundry: nec('220.52', 'Small-appliance and laundry circuits: 1,500 VA each, added to the general lighting before Table 220.42'),
+  optionalFloorArea: nec('220.82(B)(1)', 'Optional method: 3 VA per ft² of floor area (figured as in 220.11)'),
+  optionalCircuits: nec('220.82(B)(2)', 'Optional method: 1,500 VA for each 20-A small-appliance and laundry circuit'),
+  officeReceptacles: nec('220.14(K)', 'Banks and office buildings: receptacles are the larger of 220.14(I) after demand, or 1 VA per ft²'),
+  serviceConductors: nec('230.42(A)(1)', 'Service conductors: the noncontinuous load plus 125% of the continuous load'),
+  kitchenSection: nec('220.56', 'Commercial kitchen equipment: thermostatic or intermittent use; not heat, ventilation or A/C; never below the two largest'),
 } as const satisfies Record<string, CodeRef>

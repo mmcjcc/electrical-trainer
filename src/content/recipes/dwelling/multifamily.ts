@@ -146,6 +146,9 @@ export function buildMulti(inp: MultiIn, seed: number): ProblemInstance {
   const sections: Section[] = []
   const both = N.heatVA > 0 && N.acVA > 0
   const rangeStd = standardRangeVA(inp.rangeKW)
+  // The standard-method rules that would change THIS building (review 2026-10-17: no dryer text without dryers).
+  const dryerFloor = !!inp.dryer && ratingVA(inp.dryer) < DWELLING.dryerMinVA
+  const stdText = dryerFloor ? `the ${loc(REF.rangeTable)} range demand and the 5,000 VA dryer floor` : `the ${loc(REF.rangeTable)} range demand`
 
   // ---- U: one unit ---------------------------------------------------------------------------------------
   lines.push(given({ id: 'area', label: 'Floor area of one unit', say: 'Write down the floor area of one unit.', value: inp.area, unit: 'ft2', section: 'U' }))
@@ -224,7 +227,7 @@ export function buildMulti(inp: MultiIn, seed: number): ProblemInstance {
     ref: REF_LOAD.multifamilyLoads,
     parts: unitParts, unit: 'VA', section: 'U',
     mistakes: cleanMistakes(N.unit, undefined, [
-      { value: F({ standardRules: true }).unit, mistake: 'optional_used_standard_rules', message: 'Use the range and dryer nameplates: no range table, no 5,000 VA floor.' },
+      { value: F({ standardRules: true }).unit, mistake: 'optional_used_standard_rules', message: `Use nameplates here, not ${stdText}.` },
       both && { value: F({ bothHvac: true }).unit, mistake: 'added_both_heat_and_ac', message: 'Only the larger of heat and A/C goes in.' },
       both && { value: F({ smallerHvac: true }).unit, mistake: 'used_smaller_noncoincident', message: 'You kept the smaller of heat and A/C.' },
     ]),
@@ -319,7 +322,7 @@ export function buildMulti(inp: MultiIn, seed: number): ProblemInstance {
   const A = (f: MultiFlags) => roundAmps220(F(f).amps)
   const right = roundAmps220(N.amps)
   const wrongs: WrongValue[] = wrongsFrom(right, [
-    { value: A({ standardRules: true }), mistake: 'optional_used_standard_rules', why: 'Used the range table or the 5,000 VA dryer floor; the optional method uses nameplates.' },
+    { value: A({ standardRules: true }), mistake: 'optional_used_standard_rules', why: `Used ${stdText}; the optional method uses nameplates.` },
     both && { value: A({ bothHvac: true }), mistake: 'added_both_heat_and_ac', why: 'Added both the heat and the A/C; keep only the larger.' },
     both && { value: A({ smallerHvac: true }), mistake: 'used_smaller_noncoincident', why: 'Kept the smaller of heat and A/C.' },
     N.heatVA > 0 && { value: A({ heatPct: true }), mistake: 'multifamily_hvac_pct', why: 'Took 65% of the heat; in the multifamily method it goes in at 100%.' },

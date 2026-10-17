@@ -9,7 +9,7 @@ import { REF } from '@/data/refs'
 import { LOAD, REF_LOAD } from '@/data/loadExtra'
 import type { ProblemInstance, Recipe } from '@/shared/types'
 import { RANGE_KW_SINGLE } from './catalog'
-import { clean, clearFraction, loc, note1StepsWrong, rangeLines, withArticle, wrongsFrom } from './common'
+import { clean, clearFraction, hasFraction, loc, note1StepsWrong, rangeLines, withArticle, wrongsFrom } from './common'
 
 const ID = 'dwelling-range'
 
@@ -44,7 +44,8 @@ export function buildRangeSlice(inp: RangeSliceIn, seed: number): ProblemInstanc
   const wrongs: WrongValue[] = wrongsFrom(n.demandKW, [
     { value: inp.kw, mistake: 'range_nameplate', why: `Used the nameplate. A household range goes through ${loc(REF.rangeTable)}.` },
     n.over && n.steps > 0 && { value: 8, mistake: 'range_note1', why: 'Missed Note 1: a range over 12 kW gets 5% more for each kW over 12.' },
-    n.over && { value: clean(8 * (1 + (wrongSteps * LOAD.rangeNote1PctPerKW) / 100)), mistake: 'range_major_fraction', why: `Rounded the ${fmt(n.excess)} kW over 12 the wrong way.` },
+    // Only a real fraction can be rounded the wrong way (13 − 12 = 1 kW has nothing to round; review 2026-10-17).
+    n.over && hasFraction(n.excess) && { value: clean(8 * (1 + (wrongSteps * LOAD.rangeNote1PctPerKW) / 100)), mistake: 'range_major_fraction', why: `Rounded the ${fmt(n.excess)} kW over 12 the wrong way: half a kW or more counts as one more kW, less than half is dropped.` },
     { value: clean(inp.kw * LOAD.rangeColBOnePct / 100), mistake: 'range_wrong_column', why: 'Took 80% from Column B. A range over 8¾ kW uses Column C.' },
     n.over && n.steps > 0 && { value: clean(inp.kw * (1 + n.pct / 100)), mistake: 'range_nameplate', why: 'Raised the nameplate by Note 1. The 5% steps raise the Column C value (8 kW).' },
     n.over && n.steps > 0 && { value: clean(8 * (n.pct / 100)), mistake: 'range_note1', why: 'That is only the Note 1 increase, not the whole demand.' },
@@ -81,7 +82,7 @@ export const dwellingRange: Recipe = {
       { label: 'Over 12 kW?', how: 'Compare the nameplate with 12 kW.', ref: REF_LOAD.rangeNote1 },
       { label: 'Column C', how: 'One range: 8 kW.', ref: REF.rangeTable },
       { label: 'kW over 12', how: 'Nameplate − 12.', ref: REF_LOAD.rangeNote1 },
-      { label: 'Count the kW', how: 'Whole kW, plus one for a major fraction; drop a small fraction.', ref: REF_LOAD.rangeNote1 },
+      { label: 'Count the kW', how: 'Whole kW over 12. Half a kW or more (0.5 and up) counts as one more kW; less than half is dropped.', ref: REF_LOAD.rangeNote1 },
       { label: 'Raise Column C', how: '5% per kW counted: 8 × (1 + 0.05 × kW counted).', ref: REF_LOAD.rangeNote1 },
     ],
     traps: [

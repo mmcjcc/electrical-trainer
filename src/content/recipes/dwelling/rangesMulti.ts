@@ -13,7 +13,7 @@ import { REF } from '@/data/refs'
 import { LOAD, REF_LOAD } from '@/data/loadExtra'
 import type { Given, ProblemInstance, Recipe, WorkLine } from '@/shared/types'
 import { cleanMistakes, product } from '../kit'
-import { clean, clearFraction, listJoin, loc, note1Lines, note1Steps, note1StepsWrong, over12Line, withArticle, wrongsFrom } from './common'
+import { clean, clearFraction, hasFraction, listJoin, loc, note1Lines, note1Steps, note1StepsWrong, over12Line, withArticle, wrongsFrom } from './common'
 
 const ID = 'dwelling-ranges-multi'
 
@@ -46,13 +46,19 @@ export function rangesNums(inp: RangesMultiIn, f: { no12?: boolean; noNote1?: bo
   const equal = inp.groups.length === 1
   const counted = inp.groups.map((g) => g.count * (f.no12 ? g.kw : Math.max(LOAD.rangeColCMaxKW, g.kw)))
   const sumKW = clean(counted.reduce((s, v) => s + v, 0))
-  const rating = equal ? (inp.groups[0]?.kw ?? 0) : clean(sumKW / n)
+  // The average is carried as its line shows it (2 decimals), so the next line subtracts that number.
+  const rating = equal ? (inp.groups[0]?.kw ?? 0) : round2(sumKW / n)
   const over = rating > LOAD.rangeColCMaxKW + 1e-9
   const colC = rangeColumnC(n)
   const excess = over ? clean(rating - LOAD.rangeColCMaxKW) : 0
   const steps = !over || f.noNote1 ? 0 : f.wrongSteps ? note1StepsWrong(excess) : note1Steps(excess)
   const pct = steps * LOAD.rangeNote1PctPerKW
   return { n, equal, counted, sumKW, rating, over, colC, steps, pct, demand: clean(colC * (1 + pct / 100)) }
+}
+
+/** Two decimals, the way the average line prints it. */
+export function round2(v: number): number {
+  return Math.round(v * 100 + 1e-9) / 100
 }
 
 const UNDER = [9, 10, 11]
@@ -90,9 +96,9 @@ export function buildRangesMulti(inp: RangesMultiIn, seed: number): ProblemInsta
   const nameplateTotal = clean(inp.groups.reduce((s, g) => s + g.count * g.kw, 0))
 
   const story = N.equal
-    ? `A ${N.n}-unit apartment building has ${withArticle(`${fmt(inp.groups[0]?.kw ?? 0)}-kW`)} electric range in each unit. ` +
+    ? `A ${N.n}-unit apartment building is served at 120/240 V, single-phase. It has ${withArticle(`${fmt(inp.groups[0]?.kw ?? 0)}-kW`)} electric range in each unit. ` +
       'Using the standard method, what is the demand load for the ranges on the service, in kW?'
-    : `A ${N.n}-unit apartment building has one electric range in each unit: ` +
+    : `A ${N.n}-unit apartment building is served at 120/240 V, single-phase. It has one electric range in each unit: ` +
       `${listJoin(inp.groups.map((g) => `${g.count} rated ${fmt(g.kw)} kW`))}. ` +
       'Using the standard method, what is the demand load for the ranges on the service, in kW?'
   const givens: Given[] = [{ id: 'n', label: 'Number of ranges', value: N.n, unit: 'count', phrase: `${N.n}-unit` }]
@@ -140,12 +146,12 @@ export function buildRangesMulti(inp: RangesMultiIn, seed: number): ProblemInsta
       id: 'avg', label: 'Average rating',
       say: `Divide the total by the number of ranges: ${fmt(N.sumKW)} ÷ ${N.n}.`,
       ref: REF_LOAD.rangeNote2,
-      a: N.sumKW, op: '÷', b: N.n, unit: 'kW', decimals: 2, tol: { abs: 0.01 },
+      a: N.sumKW, op: '÷', b: N.n, round: round2, unit: 'kW', decimals: 2, tol: { abs: 0.01 },
       mistakes: cleanMistakes(N.rating, undefined, [
-        { value: clean(nameplateTotal / N.n), mistake: 'range_note2_average', message: 'That average uses the nameplates. Count each range under 12 kW as 12 kW first.' },
+        { value: round2(nameplateTotal / N.n), mistake: 'range_note2_average', message: 'That average uses the nameplates. Count each range under 12 kW as 12 kW first.' },
       ]),
     }))
-    lines.push(over12Line('over12', `the ${fmt(N.rating, 2)}-kW average`, N.over))
+    lines.push(over12Line('over12', `the ${fmt(N.rating, 2)}-kW average`, N.over, undefined, 2))
   }
   lines.push(lookup({
     id: 'colC', label: `Column C, ${N.n} ranges`,
@@ -159,7 +165,7 @@ export function buildRangesMulti(inp: RangesMultiIn, seed: number): ProblemInsta
   let answerLine = 'colC'
   if (N.over) {
     const nl = note1Lines({
-      rating: N.rating, base: N.colC, ratingWord: N.equal ? 'range rating' : 'average',
+      rating: N.rating, base: N.colC, ratingWord: N.equal ? 'range rating' : 'average', note: N.equal ? 1 : 2,
       ids: { excess: 'excess', steps: 'steps', pct: 'pct', demand: 'demand' },
       demandMistakes: [
         { value: clean(8 * N.n * (1 + N.pct / 100)), mistake: 'range_per_range', message: `Start from the Column C value for ${N.n} ranges (${fmt(N.colC)} kW), not 8 kW × ${N.n}.` },
@@ -173,8 +179,9 @@ export function buildRangesMulti(inp: RangesMultiIn, seed: number): ProblemInsta
   const wrongs: WrongValue[] = wrongsFrom(N.demand, [
     { value: clean(8 * N.n), mistake: 'range_per_range', why: `Multiplied 8 kW by ${N.n}. Column C already gives the demand for all the ranges together.` },
     { value: nameplateTotal, mistake: 'range_nameplate', why: 'Added the nameplates. Household ranges go through Column C.' },
-    N.over && N.steps > 0 && { value: N.colC, mistake: 'range_note1', why: 'Missed Note 1: the ranges (or their average) are over 12 kW.' },
-    N.over && { value: rangesNums(inp, { wrongSteps: true }).demand, mistake: 'range_major_fraction', why: 'Rounded the kW over 12 the wrong way.' },
+    N.over && N.steps > 0 && { value: N.colC, mistake: 'range_note1', why: N.equal ? 'Missed Note 1: the ranges are over 12 kW.' : 'Missed Note 2: the average is over 12 kW.' },
+    // Only a real fraction can be rounded the wrong way (review 2026-10-17).
+    N.over && hasFraction(N.rating - LOAD.rangeColCMaxKW) && { value: rangesNums(inp, { wrongSteps: true }).demand, mistake: 'range_major_fraction', why: `Rounded the ${fmt(clean(N.rating - LOAD.rangeColCMaxKW), 2)} kW over 12 the wrong way.` },
     !N.equal && { value: rangesNums(inp, { no12: true }).demand, mistake: 'range_note2_average', why: 'Averaged the nameplates without counting the small ranges as 12 kW.' },
     N.n > 1 && { value: clean(rangeColumnC(N.n - 1) * (1 + N.pct / 100)), mistake: 'wrong_table_row', why: `Read Column C for ${N.n - 1} ranges.` },
   ])
@@ -210,7 +217,7 @@ export const dwellingRangesMulti: Recipe = {
       { label: 'Unequal? Count as 12', how: 'Note 2: any range under 12 kW counts as 12 kW. Add them up and divide by the number of ranges.', ref: REF_LOAD.rangeNote2 },
       { label: 'Over 12 kW?', how: 'Compare the rating (or the average) with 12 kW.', ref: REF_LOAD.rangeNote1 },
       { label: 'Column C', how: 'The row for the number of ranges: that is the demand for all of them.', ref: REF.rangeTable },
-      { label: 'Note 1', how: '5% more for each kW (or major fraction) over 12.', ref: REF_LOAD.rangeNote1 },
+      { label: 'Note 1 or Note 2', how: '5% more for each kW over 12 (half a kW or more counts as one more): Note 1 for ranges of the same rating, Note 2 for the average of unequal ones.', ref: REF_LOAD.rangeNote2 },
     ],
     traps: [
       'Column C is for the whole group: never multiply it by the number of ranges.',

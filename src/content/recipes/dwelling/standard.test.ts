@@ -80,7 +80,7 @@ describe('dwelling-standard', () => {
     // F: 4,500 + 1,200 + 8 × 120 (960) + 6 × 120 (720) = 7,380; four appliances: × 0.75 = 5,535 VA.
     // D: 4 kW = 4,000, under the floor: 5,000 VA.
     // R: 13.6 − 12 = 1.6 kW, a major fraction: 2 kW counted, 10%; 8 × 1.10 = 8.8 kW = 8,800 VA.
-    // H: heat 15,000 against A/C 24 × 240 = 5,760: keep the heat, 15,000 VA.
+    // H: heat 15,000 at 100% against the A/C 24 × 240 = 5,760 at 125% = 7,200: keep the heat, 15,000 VA.
     // Largest motor still in: the disposer, 960 × 0.25 = 240 VA.
     // Total 5,625 + 5,535 + 5,000 + 8,800 + 15,000 + 240 = 40,200 VA; ÷ 240 = 167.5 → 168 A → 175 A.
     const p = buildStandard(HEAT_HOUSE, 2)
@@ -99,19 +99,22 @@ describe('dwelling-standard', () => {
     expect(answerOf(p)).toBe('175 A')
   })
 
-  it('A/C kept, two appliances at 100%, 25% of the A/C: 150 A', () => {
+  it('A/C kept at 125% (the largest motor), two appliances at 100%: 150 A', () => {
     // L: 1,600 × 3 = 4,800; three small-appliance circuits 4,500; laundry 1,500: 10,800;
     //    10,800 − 3,000 = 7,800; × 0.35 = 2,730; + 3,000 = 5,730 VA.
     // F: 5,000 + 1,500 = 6,500 VA, fewer than four: 100%.
     // D: 5 kW = 5,000 VA. R: 11 kW, not over 12: 8,000 VA.
-    // H: heat 5,000 against A/C 32 × 240 = 7,680: keep the A/C. 25% of the A/C: 1,920 VA.
-    // Total 5,730 + 6,500 + 5,000 + 8,000 + 7,680 + 1,920 = 34,830 VA; ÷ 240 = 145.1 → 145 A → 150 A.
+    // H: A/C 32 × 240 = 7,680 VA; it is the largest motor, so 7,680 × 1.25 = 9,600 VA (220.60, 2020).
+    //    Heat 5,000 at 100% against 9,600: keep the A/C at 9,600. Its 25% is in that line: no 25% line later.
+    // Total 5,730 + 6,500 + 5,000 + 8,000 + 9,600 = 34,830 VA; ÷ 240 = 145.1 → 145 A → 150 A.
     const p = buildStandard(AC_HOUSE, 3)
     expect(line(p, 'lDemand').value).toBeCloseTo(5730, 6)
     expect(line(p, 'fFour').answerId).toBe('no')
     expect(p.lines.some((l) => l.id === 'fDemand')).toBe(false)
+    expect(line(p, 'ac125').value).toBe(9600)
     expect(line(p, 'hKeep').answerId).toBe('ac')
-    expect(line(p, 'motor25').value).toBeCloseTo(1920, 6)
+    expect(line(p, 'hLoad').value).toBe(9600)
+    expect(p.lines.some((l) => l.id === 'motor25')).toBe(false)
     expect(line(p, 'total').value).toBeCloseTo(34830, 6)
     expect(answerOf(p)).toBe('150 A')
   })
@@ -132,8 +135,10 @@ describe('dwelling-standard', () => {
     expectSlip('rangeColC', '13.6', 'range_nameplate')
     expectSlip('rangeDemandKW', '8', 'range_note1')
     expectSlip('rangeSteps', '1', 'range_major_fraction')
-    expectSlip('hLoad', '20760', 'added_both_heat_and_ac')
-    expectSlip('hLoad', '5760', 'used_smaller_noncoincident')
+    expectSlip('hLoad', '22200', 'added_both_heat_and_ac') // 15,000 + 7,200
+    expectSlip('hLoad', '20760', 'added_both_heat_and_ac') // 15,000 + 5,760
+    expectSlip('hLoad', '7200', 'used_smaller_noncoincident') // the A/C at 125%
+    expectSlip('ac125', '5760', 'largest_motor_25')
     expectSlip('motor25', '1440', 'motor25_wrong_motor') // 25% of the dropped A/C
     expectSlip('amps', '335', 'wrong_voltage') // 40,200 ÷ 120
     expectSlip('service', '150', 'ocpd_rounded_down')
@@ -150,7 +155,7 @@ describe('dwelling-standard', () => {
   })
 
   it('wrong exam options come from the slips (heat house)', () => {
-    // Adding both: 40,200 + 5,760 = 45,960 VA ÷ 240 = 191.5 A → 200 A. Dividing by 120: 335 A → 350 A.
+    // Adding both: 40,200 + 7,200 = 47,400 VA ÷ 240 = 197.5 A → 200 A. Dividing by 120: 335 A → 350 A.
     const S = (f: Parameters<typeof standardNums>[1]) => standardNums(HEAT_HOUSE, f).service
     expect(S({ bothHvac: true })).toBe(200)
     expect(S({ by120: true })).toBe(350)

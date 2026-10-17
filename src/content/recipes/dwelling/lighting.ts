@@ -60,7 +60,7 @@ export function buildLightingSlice(inp: LightingSliceIn, seed: number): ProblemI
     { value: clean(n.total * 0.35 + 3000), mistake: 'demand_on_whole_load', why: 'Took 35% of the whole load, then added 3,000. Only the part over 3,000 VA gets 35%.' },
     { value: lightingDemandOf(n.glVA), mistake: 'missed_small_appliance', why: 'Left out the small-appliance and laundry circuits.' },
     { value: n.at35, mistake: 'forgot_first_step', why: 'Forgot to add back the first 3,000 VA at 100%.' },
-    ex > 0 && { value: lightingNums({ ...li, area: li.area + ex }).demand, mistake: 'floor_area_extra', why: 'Counted the garage or porch as floor area.' },
+    ex > 0 && { value: lightingNums({ ...li, area: li.area + ex }).demand, mistake: 'floor_area_extra', why: `Counted the ${listJoin(li.excluded.map((e) => e.name))} as floor area.` },
     { value: n.total, mistake: 'demand_factor_missed', why: `Left out the demand factor: this is the load before ${loc(REF.lightingDemand)}.` },
   ])
 

@@ -9,14 +9,16 @@
  *      space heating, A/C): their VA, × 0.75 when four or more
  *   D  dryer: 5,000 VA or the nameplate, whichever is larger (220.54)
  *   R  range: Column C (8 kW), Note 1 adds 5% per kW or major fraction over 12 kW (Table 220.55)
- *   H  heat at 100% (220.51) against the A/C (amps × 240 V): keep the larger (220.60)
- *   A  + 25% of the largest motor (220.50 -> 430.24, as D1(b) does): the A/C compressor when the A/C is
- *      kept, else the largest motor appliance; total ÷ 240 V; next standard size, never under 100 A
- *      (230.79(C)).
+ *   H  heat at 100% (220.51) against the A/C, which is the largest motor, at 125% (amps × 240 V × 1.25;
+ *      220.60 second sentence (2020) with 220.50 -> 430.24): keep the larger, drop the other
+ *   A  when the heat won (or there is no A/C): + 25% of the largest motor appliance (220.50 -> 430.24,
+ *      as D1(b) does); total ÷ 240 V; next standard size (240.6(A)), never under 100 A (230.79(C)).
  *
- * The answer key is kept uncontestable by construction: heat and A/C differ by at least 30% (so the
- * 2020 220.60 "125% of the motor in the comparison" reading cannot change which is kept), the service
- * size is the same with and without the 25% motor line, and with or without the 220.5(B) rounding.
+ * The answer key is kept uncontestable by construction: heat and A/C differ by at least 30% at 100%
+ * (so comparing the A/C at 100% or at 125% keeps the same one), the A/C is always bigger than any motor
+ * appliance, the service size is the same with and without the 25% (on the A/C or on the motor
+ * appliance), and with or without the 220.5(B) rounding. Motor appliances are given in amps × volts
+ * only (no horsepower), as D1(b) does.
  */
 import { calc, choose, fmt, makeRng, sum, type WrongValue } from '@/calc'
 import { DWELLING } from '@/data/tables'
@@ -26,7 +28,7 @@ import type { Given, ProblemInstance, Recipe, Section, WorkLine } from '@/shared
 import { cleanMistakes, opt, ruleLine, word } from '../kit'
 import { AC_AMPS, DRYER_RATINGS, HEAT_KW, pickAppliances, RANGE_KW_SINGLE } from './catalog'
 import {
-  ampsLine, appliancePhrase, clean, clearFraction, circuitsText, dryerLines, dryerVA, excludedFt2, lightingDemandOf,
+  ampsLine, appliancePhrase, capFirst, clean, clearFraction, circuitsText, dryerLines, FIXED_RULE_SAY, FIXED_RULE_WHY, dryerVA, excludedFt2, lightingDemandOf,
   lightingLines, lightingNums, listJoin, loc, rangeLines, ratingVA, singleRangeNums, sizeChoices, sizeFor, sizeLine,
   sizeStable, vaLine, withArticle, wrongsFrom, type Appliance, type LightingIn, type MaybeMistake, type Rating,
 } from './common'
@@ -71,8 +73,11 @@ export interface StandardNums {
   R: number
   heatVA: number
   acVA: number
+  /** The A/C compressor (the largest motor) at 125%, as 220.60 compares it with the heat. */
+  ac125: number
   keep?: 'heat' | 'ac'
   H: number
+  /** The motor appliance that gets the extra 25% (only when the A/C is not kept). */
   motor?: { name: string; va: number }
   motor25: number
   total: number
@@ -111,21 +116,24 @@ export function standardNums(inp: StandardIn, f: StandardFlags = {}): StandardNu
   const rBefore = rn ? clean(rn.kw * 1000) : 0
   const R = !rn ? 0 : f.rangeNameplate ? rBefore : f.noNote1 ? 8000 : rn.demandVA
 
+  // 220.60 (2020): heat at 100% against the A/C compressor, the largest motor, at 125%.
   const heatVA = inp.heatKW ? clean(inp.heatKW * 1000) : 0
   const acVA = inp.acAmps ? inp.acAmps * 240 : 0
-  const keep = heatVA === 0 && acVA === 0 ? undefined : acVA > heatVA ? 'ac' : 'heat'
-  let H = Math.max(heatVA, acVA)
-  if (f.bothHvac) H = heatVA + acVA
-  if (f.smallerHvac && heatVA > 0 && acVA > 0) H = Math.min(heatVA, acVA)
+  const ac125 = clean((acVA * LOAD.largestMotorPct) / 100)
+  const keep = heatVA === 0 && acVA === 0 ? undefined : ac125 > heatVA ? 'ac' : 'heat'
+  let H = keep === 'ac' ? (f.noMotor25 ? acVA : ac125) : heatVA
+  if (f.bothHvac) H = heatVA + ac125
+  if (f.smallerHvac && heatVA > 0 && acVA > 0) H = keep === 'ac' ? heatVA : ac125
 
-  const big = largestMotor(inp.appliances)
-  const motor = keep === 'ac' ? { name: 'air conditioner', va: acVA } : big ? { name: big.name, va: ratingVA(big.rating) } : undefined
+  // The A/C's extra 25% is already in H when it is kept; otherwise the largest motor appliance gets it.
+  const big = keep === 'ac' ? undefined : largestMotor(inp.appliances)
+  const motor = big ? { name: big.name, va: ratingVA(big.rating) } : undefined
   const motor25 = f.noMotor25 || !motor ? 0 : clean((motor.va * LOAD.largestMotorExtraPct) / 100)
 
   const total = clean(L + F + D + R + H + motor25)
   const amps = total / (f.by120 ? 120 : 240)
   const service = sizeFor(amps, f.noMin100 ? undefined : LOAD.minServiceOneFamilyA)
-  return { lBefore: ln.total, L, fBefore, F, dBefore, D, rBefore, R, heatVA, acVA, keep, H, motor, motor25, total, amps, service }
+  return { lBefore: ln.total, L, fBefore, F, dBefore, D, rBefore, R, heatVA, acVA, ac125, keep, H, motor, motor25, total, amps, service }
 }
 
 /** True when nothing the experts argue about can change the answer (see the file comment). */
@@ -135,6 +143,9 @@ export function standardIsRobust(inp: StandardIn): boolean {
   if (a.service !== b.service) return false
   if (!sizeStable(a.amps, LOAD.minServiceOneFamilyA) || !sizeStable(b.amps, LOAD.minServiceOneFamilyA)) return false
   if (a.heatVA > 0 && a.acVA > 0 && Math.max(a.heatVA, a.acVA) < 1.3 * Math.min(a.heatVA, a.acVA)) return false
+  // The A/C must be the largest motor, so "the A/C at 125%" is the largest-motor rule.
+  const big = largestMotor(inp.appliances)
+  if (a.acVA > 0 && big && ratingVA(big.rating) >= a.acVA) return false
   if (inp.rangeKW !== undefined && inp.rangeKW > LOAD.rangeColCMaxKW && !clearFraction(inp.rangeKW - LOAD.rangeColCMaxKW)) return false
   return true
 }
@@ -248,6 +259,7 @@ export function buildStandard(inp: StandardIn, seed: number): ProblemInstance {
   const S = (f: StandardFlags) => standardNums(inp, f).service
   const li = inp.lighting
   const ex = excludedFt2(li)
+  const exNames = listJoin(li.excluded.map((e) => e.name))
   const lines: WorkLine[] = []
   const sections: Section[] = []
   const n = inp.appliances.length
@@ -264,6 +276,10 @@ export function buildStandard(inp: StandardIn, seed: number): ProblemInstance {
   // ---- F ---------------------------------------------------------------------------------------------
   if (n > 0) {
     const excludedVA = (rn ? rn.kw * 1000 : 0) + (inp.dryer ? N.dBefore : 0)
+    // The loads in THIS story that are not fastened-in-place appliances for 220.53 (review 2026-10-17).
+    const others = [rn && 'the range', inp.dryer && 'the dryer', N.heatVA > 0 && 'the electric heat', N.acVA > 0 && 'the air conditioner']
+      .filter((x): x is string => !!x)
+    const cookDry = [rn && 'the range', inp.dryer && 'the dryer'].filter((x): x is string => !!x)
     for (const a of inp.appliances) lines.push(vaLine(`f_${a.key}`, cap(a.name), a.rating, 'F'))
     const notFour: MaybeMistake = !four && {
       value: clean(N.fBefore * 0.75), mistake: 'appliance_75_misused',
@@ -272,13 +288,13 @@ export function buildStandard(inp: StandardIn, seed: number): ProblemInstance {
     if (n >= 2) {
       lines.push(sum({
         id: 'fSum', label: 'Fastened-in-place appliances, total',
-        say: 'Add the VA of the fastened-in-place appliances. Leave out the range, the dryer, the heat and the A/C.',
-        why: 'The range, dryer, heat and A/C each have their own rule, so they are not part of this bucket.',
+        say: `Add the fastened-in-place appliances (1/4 hp or 500 W and up).${others.length ? ` Leave out ${listJoin(others)}: cooking equipment, dryers, space heating and A/C have their own rules.` : ''}`,
+        why: FIXED_RULE_WHY,
         ref: REF.fixedAppliances,
         parts: inp.appliances.map((a) => ratingVA(a.rating)), unit: 'VA', section: 'F',
         mistakes: cleanMistakes(N.fBefore, undefined, [
           notFour,
-          excludedVA > 0 && { value: N.fBefore + excludedVA, mistake: 'appliance_excluded_counted', message: 'The range and the dryer do not belong here; they have their own buckets.' },
+          excludedVA > 0 && { value: N.fBefore + excludedVA, mistake: 'appliance_excluded_counted', message: `${capFirst(listJoin(cookDry))} ${cookDry.length === 1 ? 'does' : 'do'} not belong here: ${cookDry.length === 1 ? 'it has its own bucket' : 'they have their own buckets'}.` },
         ]),
       }))
     } else {
@@ -288,12 +304,12 @@ export function buildStandard(inp: StandardIn, seed: number): ProblemInstance {
     const yesWrong = !four && n + otherLoads >= LOAD.appliance75MinCount ? 'appliance_excluded_counted' : 'appliance_75_misused'
     lines.push(choose({
       id: 'fFour', label: 'Four or more?',
-      say: 'Count the fastened-in-place appliances (not the range, dryer, heat or A/C). Are there four or more?',
-      why: 'With four or more, they will not all run at once, so the code lets you take 75% of their total.',
+      say: `${FIXED_RULE_SAY} Are there four or more?`,
+      why: `${FIXED_RULE_WHY} With four or more, they will not all run at once.`,
       ref: REF.fixedAppliances,
       options: [
         opt('yes', 'Four or more: multiply by 0.75',
-          four ? undefined : `Only ${word(n)} count${n === 1 ? 's' : ''} here. The range, dryer, heat and A/C have their own rules and are not counted.`,
+          four ? undefined : `Only ${word(n)} count${n === 1 ? 's' : ''} here.${others.length ? ` ${capFirst(listJoin(others))} ${others.length === 1 ? 'has its' : 'have their'} own rules and ${others.length === 1 ? 'is' : 'are'} not counted.` : ''}`,
           four ? undefined : yesWrong),
         opt('no', 'Fewer than four: count them at 100%',
           four ? `There are ${word(n)} fastened-in-place appliances. Four or more get 75%.` : undefined,
@@ -350,20 +366,33 @@ export function buildStandard(inp: StandardIn, seed: number): ProblemInstance {
         a: inp.acAmps ?? 0, op: '×', b: 240, unit: 'VA', section: 'H',
         mistakes: [{ value: (inp.acAmps ?? 0) * 120, mistake: 'wrong_voltage', message: 'The air conditioner is a 240-V load. Multiply by 240.' }],
       }))
+      // 220.60 (2020, second sentence) with 220.50 -> 430.24: the A/C compressor is the largest motor,
+      // so it is compared (and, when kept, counted) at 125%. No separate 25% line for it (review 2026-10-17).
+      lines.push(calc({
+        id: 'ac125', label: 'A/C at 125% (largest motor)',
+        say: `The A/C compressor is the largest motor in the house: count it at 125%. ${fmt(N.acVA)} × 1.25.`,
+        why: `${loc(REF.motorLoadCalc)} sends motor loads to ${loc(REF.motorFeeder)}, which puts the largest motor at 125%.` +
+          (both ? ` The second sentence of ${loc(REF.noncoincident)} (2020) compares heat and A/C that way: the heat at 100%, the A/C at 125%.` : '') +
+          ' The extra 25% is in this line, so the A/C gets no separate 25% line later.',
+        ref: REF.motorLoadCalc,
+        a: N.acVA, op: '×', b: LOAD.largestMotorPct / 100, unit: 'VA', section: 'H',
+        mistakes: [{ value: N.acVA, mistake: 'largest_motor_25', message: 'The A/C compressor is the largest motor: count it at 125%, × 1.25.' }],
+        checkpoint: true,
+      }))
     }
     if (both) {
       const heatBig = N.keep === 'heat'
       lines.push(choose({
         id: 'hKeep', label: 'Heat or A/C?',
-        say: 'Heat and A/C never run at the same time. Which one stays in the calculation?',
-        why: 'They are noncoincident loads: the code lets you count only the larger one.',
+        say: 'Heat and A/C never run at the same time. Compare the heat at 100% with the A/C at 125%. Which one stays?',
+        why: `They are noncoincident loads: ${loc(REF.noncoincident)} lets you count only the larger one, with the A/C (the largest motor) at 125%.`,
         ref: REF.noncoincident,
         options: [
-          opt('heat', 'Keep the heat, drop the A/C',
-            heatBig ? undefined : `The heat (${fmt(N.heatVA)} VA) is the smaller one. Keep the larger: the A/C, ${fmt(N.acVA)} VA.`,
+          opt('heat', 'Keep the heat (100%), drop the A/C',
+            heatBig ? undefined : `The heat (${fmt(N.heatVA)} VA) is the smaller one. Keep the larger: the A/C at 125%, ${fmt(N.ac125)} VA.`,
             heatBig ? undefined : 'used_smaller_noncoincident'),
-          opt('ac', 'Keep the A/C, drop the heat',
-            heatBig ? `The A/C (${fmt(N.acVA)} VA) is the smaller one. Keep the larger: the heat, ${fmt(N.heatVA)} VA.` : undefined,
+          opt('ac', 'Keep the A/C (at 125%), drop the heat',
+            heatBig ? `Even at 125% the A/C (${fmt(N.ac125)} VA) is the smaller one. Keep the larger: the heat, ${fmt(N.heatVA)} VA.` : undefined,
             heatBig ? 'used_smaller_noncoincident' : undefined),
           opt('both', 'Add both', 'They never run together (noncoincident loads): keep only the larger one.', 'added_both_heat_and_ac'),
         ],
@@ -372,18 +401,20 @@ export function buildStandard(inp: StandardIn, seed: number): ProblemInstance {
       }))
       lines.push(ruleLine({
         id: 'hLoad', label: 'Heat or A/C, the larger',
-        say: 'Write down the larger of the two.',
+        say: 'Write down the larger: the heat at 100% or the A/C at 125%.',
         ref: REF.noncoincident,
         value: N.H, unit: 'VA',
-        expr: `larger of ${fmt(N.heatVA)} and ${fmt(N.acVA)} → ${fmt(N.H)}`,
+        expr: `larger of heat ${fmt(N.heatVA)} and A/C at 125% ${fmt(N.ac125)} → ${fmt(N.H)}`,
         mistakes: cleanMistakes(N.H, undefined, [
+          { value: N.heatVA + N.ac125, mistake: 'added_both_heat_and_ac', message: 'Do not add them: heat and A/C never run together. Keep the larger one.' },
           { value: N.heatVA + N.acVA, mistake: 'added_both_heat_and_ac', message: 'Do not add them: heat and A/C never run together. Keep the larger one.' },
-          { value: Math.min(N.heatVA, N.acVA), mistake: 'used_smaller_noncoincident', message: 'That is the smaller one. Keep the LARGER of heat and A/C.' },
+          { value: Math.min(N.heatVA, N.ac125), mistake: 'used_smaller_noncoincident', message: 'That is the smaller one. Keep the LARGER of heat and A/C.' },
+          N.keep === 'ac' && { value: N.acVA, mistake: 'largest_motor_25', message: 'Keep the A/C at 125%: it is the largest motor.' },
         ]),
         section: 'H', checkpoint: true,
       }))
     }
-    sections.push({ id: 'H', label: 'Heat or A/C (the larger)', totalLine: both ? 'hLoad' : N.heatVA > 0 ? 'heatVA' : 'acVA', letter: 'H' })
+    sections.push({ id: 'H', label: 'Heat or A/C (the larger)', totalLine: both ? 'hLoad' : N.heatVA > 0 ? 'heatVA' : 'ac125', letter: 'H' })
   }
 
   // ---- A ---------------------------------------------------------------------------------------------
@@ -398,16 +429,17 @@ export function buildStandard(inp: StandardIn, seed: number): ProblemInstance {
     const motors = inp.appliances.filter((a) => a.motor && a.name !== m.name)
     lines.push(calc({
       id: 'motor25', label: '25% of the largest motor',
-      say: N.keep === 'ac'
-        ? `The A/C compressor is the largest motor. Add 25% of it: ${fmt(m.va)} × 0.25.`
-        : `The largest motor still in the calculation is the ${m.name}. Add 25% of it: ${fmt(m.va)} × 0.25.`,
-      why: `The largest motor counts at 125% (${loc(REF.motorLoadCalc)} sends you to ${loc(REF.motorFeeder)}). Its 100% is already in a bucket above, so this line adds the other 25%, the way ${loc(REF.annexD1b)} does.`,
+      say: acDropped
+        ? `The A/C was dropped (the heat is larger), so the largest motor left is the ${m.name}. Add 25% of its rating: ${fmt(m.va)} × 0.25.`
+        : `The largest motor is the ${m.name}. Add 25% of its rating: ${fmt(m.va)} × 0.25.`,
+      // Review 2026-10-17: no claim that its 100% is "already above" (in bucket F it may sit at 75%).
+      why: `${loc(REF.motorFeeder)} wants the largest motor at 125% (${loc(REF.motorLoadCalc)} sends motor loads there). Add 25% of its rating here, as ${loc(REF.annexD1b)} does.`,
       ref: REF.motorLoadCalc,
       a: m.va, op: '×', b: LOAD.largestMotorExtraPct / 100, unit: 'VA', section: 'A',
       mistakes: cleanMistakes(N.motor25, undefined, [
         acDropped && { value: clean(N.acVA * 0.25), mistake: 'motor25_wrong_motor', message: `The A/C was dropped (the heat is larger), so it is not in the calculation. Take 25% of the ${m.name}.` },
         ...motors.map((x) => ({ value: clean(ratingVA(x.rating) * 0.25), mistake: 'motor25_wrong_motor', message: `The ${x.name} is not the largest motor. Take 25% of the ${m.name}.` })),
-        { value: clean(m.va * 1.25), mistake: 'largest_motor_25', message: `This line is only the EXTRA 25%. The ${m.name}'s full load is already counted above.` },
+        { value: clean(m.va * 1.25), mistake: 'largest_motor_25', message: `This line is only the extra 25% of the ${m.name}'s rating. The ${m.name} itself is counted in bucket F.` },
       ]),
     }))
     parts.push(N.motor25)
@@ -421,7 +453,7 @@ export function buildStandard(inp: StandardIn, seed: number): ProblemInstance {
     mistakes: cleanMistakes(N.total, undefined, [
       { value: dropped({ wholeLighting35: true }), mistake: 'demand_on_whole_load', message: 'Check bucket L: the 35% goes only on the part over 3,000 VA.' },
       { value: dropped({ noSmallAppliance: true }), mistake: 'missed_small_appliance', message: 'Bucket L is missing the small-appliance and laundry circuits.' },
-      ex > 0 && { value: dropped({ countedExcluded: true }), mistake: 'floor_area_extra', message: 'Bucket L counts the garage or porch. Use the living area only.' },
+      ex > 0 && { value: dropped({ countedExcluded: true }), mistake: 'floor_area_extra', message: `Bucket L counts the ${exNames}. Use the living area only.` },
       n > 0 && { value: dropped({ wrong75: true }), mistake: 'appliance_75_misused', message: four ? 'Bucket F: four or more appliances are counted at 75%.' : 'Bucket F: fewer than four appliances stay at 100%.' },
       inp.dryer && N.dBefore < DWELLING.dryerMinVA && { value: dropped({ dryerNameplate: true }), mistake: 'dryer_minimum', message: 'Bucket D: a dryer counts at least 5,000 VA.' },
       inp.dryer && N.dBefore > DWELLING.dryerMinVA && { value: dropped({ dryerFloorOnly: true }), mistake: 'dryer_nameplate_larger', message: 'Bucket D: the dryer nameplate is more than 5,000 VA, so use the nameplate.' },
@@ -429,7 +461,7 @@ export function buildStandard(inp: StandardIn, seed: number): ProblemInstance {
       rn?.over && rn.steps > 0 && { value: dropped({ noNote1: true }), mistake: 'range_note1', message: 'Bucket R: the range is over 12 kW, so Note 1 raises the 8 kW.' },
       both && { value: dropped({ bothHvac: true }), mistake: 'added_both_heat_and_ac', message: 'Bucket H: keep only the larger of heat and A/C.' },
       both && { value: dropped({ smallerHvac: true }), mistake: 'used_smaller_noncoincident', message: 'Bucket H: you kept the smaller of heat and A/C.' },
-      N.motor25 > 0 && { value: dropped({ noMotor25: true }), mistake: 'largest_motor_25', message: 'Add the 25% of the largest motor too.' },
+      (N.motor25 > 0 || N.keep === 'ac') && { value: dropped({ noMotor25: true }), mistake: 'largest_motor_25', message: N.keep === 'ac' ? 'Bucket H: the A/C is the largest motor, so it is kept at 125%.' : 'Add the 25% of the largest motor too.' },
       inp.dryer && { value: clean(N.total - N.D), mistake: 'left_out_load', message: 'The dryer bucket is missing from the total.' },
     ]),
   }))
@@ -450,7 +482,7 @@ export function buildStandard(inp: StandardIn, seed: number): ProblemInstance {
     { value: S({ by120: true }), mistake: 'wrong_voltage', why: 'Divided by 120 V. A 120/240-V service divides the total by 240.' },
     { value: S({ wholeLighting35: true }), mistake: 'demand_on_whole_load', why: 'This is what you get if you take 35% of the whole lighting load, not just the part over 3,000 VA.' },
     { value: S({ noSmallAppliance: true }), mistake: 'missed_small_appliance', why: 'Left out the small-appliance and laundry circuits.' },
-    ex > 0 && { value: S({ countedExcluded: true }), mistake: 'floor_area_extra', why: 'Counted the garage or porch as floor area.' },
+    ex > 0 && { value: S({ countedExcluded: true }), mistake: 'floor_area_extra', why: `Counted the ${exNames} as floor area.` },
     n > 0 && { value: S({ wrong75: true }), mistake: 'appliance_75_misused', why: four ? 'Left the four or more appliances at 100%; they get 75%.' : 'Took 75% of fewer than four appliances.' },
     inp.dryer && N.dBefore < DWELLING.dryerMinVA && { value: S({ dryerNameplate: true }), mistake: 'dryer_minimum', why: 'Used the dryer nameplate under 5,000 VA.' },
     rn && { value: S({ rangeNameplate: true }), mistake: 'range_nameplate', why: `Used the range nameplate instead of ${loc(REF.rangeTable)}.` },
@@ -501,11 +533,11 @@ export const dwellingStandard: Recipe = {
     whenToUse: 'The question describes one house (square feet and its appliances) and asks for the service size by the standard method.',
     steps: [
       { label: 'L: lighting, small appliances, laundry', how: 'Square feet × 3, plus 1,500 VA per small-appliance circuit (two at least) and 1,500 VA for laundry. First 3,000 VA at 100%, the rest at 35%.', ref: REF.lightingDemand },
-      { label: 'F: fastened-in-place appliances', how: 'Water heater, dishwasher, disposer, pumps: add their VA. Four or more: × 0.75.', ref: REF.fixedAppliances },
+      { label: 'F: fastened-in-place appliances', how: 'Water heater, dishwasher, disposer, pumps (1/4 hp or 500 W and up; not cooking units, dryers, heat or A/C): add their VA. Four or more: × 0.75.', ref: REF.fixedAppliances },
       { label: 'D: dryer', how: '5,000 VA or the nameplate, whichever is larger.', ref: REF.dryers },
       { label: 'R: range', how: 'Column C: 8 kW for one range up to 12 kW. Over 12 kW: 5% more for each kW over 12.', ref: REF.rangeTable },
-      { label: 'H: heat or A/C', how: 'Heat at 100%, A/C at amps × 240. Keep only the larger.', ref: REF.noncoincident },
-      { label: 'Largest motor', how: 'Add 25% of the largest motor: the A/C when it is kept, else the biggest motor appliance.', ref: REF.motorLoadCalc },
+      { label: 'H: heat or A/C', how: 'Heat at 100%; the A/C (the largest motor) at amps × 240 × 1.25. Keep only the larger.', ref: REF.noncoincident },
+      { label: 'Largest motor', how: 'When the heat wins (or there is no A/C): add 25% of the biggest motor appliance.', ref: REF.motorLoadCalc },
       { label: 'A: amps and service', how: 'Add it all up, ÷ 240, then the next standard size. Never under 100 A.', ref: REF.minServiceDwelling },
     ],
     traps: [
@@ -514,7 +546,7 @@ export const dwellingStandard: Recipe = {
       'Garages and open porches are not floor area.',
       'The range, dryer, heat and A/C never count toward the four fastened-in-place appliances.',
       'A dryer is never less than 5,000 VA. A range is never its nameplate.',
-      'Heat and A/C: keep the larger, drop the other. Never add both.',
+      'Heat and A/C: compare the heat at 100% with the A/C at 125%, keep the larger, drop the other. Never add both.',
       'A 120/240-V service: divide by 240, not 120.',
     ],
     formulas: [

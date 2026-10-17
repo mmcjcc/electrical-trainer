@@ -1,6 +1,6 @@
 # Electrical Trainer: Maryland Master Electrician exam prep (design)
 
-Status: design v1, 2026-10-16. Owner: Jason. Built by Claude (architect and final say), with Antigravity
+Status: v1 built 2026-10-17 (see "Build status" at the end). Owner: Jason. Built by Claude (architect and final say), with Antigravity
 (Gemini 4 Argon High) drafting and reviewing; every Antigravity claim is checked before it is used
 (`docs/reviews/`).
 
@@ -181,7 +181,7 @@ Cross-device sync is a possible follow-up (a tiny API with `/data`), not v1.
 
 ## 9. Hosting (app-broker contract 2)
 
-- App `electrician` at `https://electrician.apps.mmcjcc.com` (name to confirm with Jason), image
+- App `electrician` at `https://electrician.apps.mmcjcc.com`, image
   `ghcr.io/mmcjcc/electrical-trainer`, static nginx on port 8080 as uid 10005, health `/healthz`,
   read-only root, tmpfs `/tmp`, no secrets, no `/data` in v1.
 - Sign-in by the platform: `auth: {profile: electrician}` with the app's own user list (Jason names
@@ -196,3 +196,18 @@ Cross-device sync is a possible follow-up (a tiny API with `/data`), not v1.
 
 Accounts beyond the platform sign-in, server-side progress, an AI tutor (the Math app's tutor
 sidecar can be added later), the journeyperson exam, NEC 2026.
+
+## Build status (2026-10-17)
+
+- **Content:** 26 calculation recipes (11 load calculation, 15 wiring, motor, transformer and basics), every one
+  through `checkRecipe` and hand-worked spot tests; the load recipes reproduce Annex D's own published results.
+  365 code questions (349 across the seven exam areas + 16 Maryland law), every Antigravity draft verified by a Claude
+  reviewer (`docs/reviews/bank-*.md`: 30-57% of drafts needed fixes).
+- **Reviews:** code-book values, worksheet engine, store and exam, and the load calculations against the 2020 NEC,
+  each finding checked and recorded in `docs/reviews/`.
+- **Tests:** 49 files, 436 tests; a clean clone installs, typechecks, tests and builds.
+- **Hosting:** the image files, CI and the manifest are ready and `ssh homelab plan electrician` passes; the app's
+  user list is set (two addresses). Not yet done: the GitHub repository, the first push and the first deploy (Jason's
+  go-ahead), and the Google test-user step for each Gmail address.
+- **Known limits:** recipes are 2020-only (the references carry 2023/2026 locations for the switch); the browser QA
+  covered the main flows at 375 px and desktop, not every screen; progress stays on each device (export/import).
