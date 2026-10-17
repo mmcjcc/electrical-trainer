@@ -207,7 +207,7 @@ export function bookHint(ref: CodeRef, edition: NecEdition): BookHint {
       chapter: 'Maryland law, not the NEC',
       article: isComar
         ? 'COMAR Title 09, Subtitle 09: the State Board of Master Electricians regulations'
-        : 'Maryland Code, Business Regulation Article, Title 6: Electricians',
+        : 'Maryland Code, Business Occupations and Professions Article, Title 6: Electricians',
       exact: loc,
       tip: 'Maryland law questions are answered from the state law and regulations, not the code book.',
     }
