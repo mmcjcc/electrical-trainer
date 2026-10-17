@@ -1,0 +1,4 @@
+* text=auto eol=lf
+# deploy/ and docker/ are read on Linux (docker01 and CI): the gate rejects a manifest with CR line ends, and sh rejects a CRLF script.
+*.png binary
+*.ico binary

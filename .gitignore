@@ -1,0 +1,16 @@
+node_modules
+dist
+dist-ssr
+*.local
+.env
+.env.*
+!.env.example
+.DS_Store
+coverage
+.vite
+
+# Never commit keys or study material that is not ours to publish.
+apikey*
+*.apikey
+secrets/
+/.claude/
