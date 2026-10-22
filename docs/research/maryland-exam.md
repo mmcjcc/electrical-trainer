@@ -58,60 +58,43 @@ All from the PSI bulletin (https://test-takers.psiexams.com/api/content/bulletin
 
 **Journeyperson for comparison:** 70 questions, 49 (70%) to pass, 210 minutes, same reference and rules.
 
-## 3. Full content outline (copied from the PSI bulletin, pp.3-4)
+## 3. Content outline (PSI bulletin pp.3-4, restated in our own words)
 
-Source: PSI bulletin, https://test-takers.psiexams.com/api/content/bulletin/8041 (Updated 9/1/2024). I rendered the PDF pages and checked them against the text.
+Source: PSI bulletin, https://test-takers.psiexams.com/api/content/bulletin/8041 (Updated 9/1/2024), pages 3-4. The
+facts below (areas, question counts, the NEC articles each area covers) come from it and were checked against the
+rendered PDF pages again on 2026-10-22; the wording, grouping and layout are ours. For PSI's own presentation, read the
+bulletin.
 
-### MASTER ELECTRICIAN
+### Master Electrician: 90 questions worth 100 points, 70% to pass, 240 minutes
 
-| # of Questions | Minimum Passing Score | Time Allowed |
+| Area (PSI's name) | What it covers | Points |
 |---|---|---|
-| 90 (100 points) | 70% | 240 minutes |
+| Electrical Theory | Ten items worth 2 points each. Theory and Ohm's law, the meaning of terms, field techniques and troubleshooting, equipment, devices and meters, materials, math and unit conversions, and reading diagrams and symbols. | 20 |
+| Wiring and Protection | NEC Articles 100 and 110, then 200 through 285, which the outline splits into 200-210, 215-225, 230, 240 and 250-285. | 14 |
+| Wiring Methods and Materials | NEC Chapter 3 by article number, 300 through 398, listed in six ranges (300, 310-314, 320-330, 332-356, 358-374, 376-398). | 13 |
+| Equipment for General Use | NEC Chapter 4 in four ranges: 400-411, 422-427, 430-450 and 455-490. | 9 |
+| Special Occupancies | NEC Chapter 5 in three ranges: 500-525, 530-547 and 550-590. | 8 |
+| Special Equipment | NEC Chapter 6 in two ranges: 600-675 and 680-695. | 4 |
+| Special Communications | NEC 700-708 and 720-830: emergency and standby systems on through communications. PSI's label covers parts of Chapters 7 and 8. | 2 |
+| Calculations | No sub-areas are given. | 30 |
 
-**Content Outline**
-
-| # | Area and subtopics (verbatim) | Number given |
-|---|---|---|
-| 1. | **Electrical Theory (Ten 2-point items)**<br>a. Definitions<br>b. Theory Including Ohm's Law<br>c. Techniques<br>d. Troubleshooting<br>e. Equipment/Devices<br>f. Instruments<br>g. Materials<br>h. Math<br>i. Conversions<br>j. Diagrams<br>k. Symbols | 20 |
-| 2. | **Wiring and Protection**<br>a. NEC Article 100<br>b. NEC Article 110<br>c. NEC Article 200-210<br>d. NEC Article 215-225<br>e. NEC Article 230<br>f. NEC Article 240<br>g. NEC Article 250-285 | 14 |
-| 3. | **Wiring Methods and Materials**<br>a. NEC Article 300<br>b. NEC Article 310-314<br>c. NEC Article 320-330<br>d. NEC Article 332-356<br>e. NEC Article 358-374<br>f. NEC Article 376-398 | 13 |
-| 4. | **Equipment for General Use**<br>a. NEC Article 400-411<br>b. NEC Article 422-427<br>c. NEC Article 430-450<br>d. NEC Article 455-490 | 9 |
-| 5. | **Special Occupancies**<br>a. NEC Article 500-525<br>b. NEC Article 530-547<br>c. NEC Article 550-590 | 8 |
-| 6. | **Special Equipment**<br>a. NEC Article 600-675<br>b. NEC Article 680-695 | 4 |
-| 7. | **Special Communications**<br>a. NEC Article 700-708<br>b. NEC Article 720-830 | 2 |
-| 8. | **Calculations** (no subtopics listed) | 30 |
-
-Share of the 100 points (derived): Theory 20%, Wiring and Protection 14%, Wiring Methods 13%, Equipment 9%, Special Occupancies 8%, Special Equipment 4%, Special Communications 2%, **Calculations 30%**.
+Share of the 100 points (derived): Theory 20%, Wiring and Protection 14%, Wiring Methods 13%, Equipment 9%, Special
+Occupancies 8%, Special Equipment 4%, Special Communications 2%, **Calculations 30%**.
 
 Notes:
-- "Special Communications" is PSI's label. It spans NEC Arts. 700-708 (Chapter 7, emergency and standby systems) and 720-830.
-- The article ranges follow 2020-NEC numbering, for example "250-285".
+- The outline gives a number per area; only Theory says its items are worth 2 points. Reading the other 80 points as
+  80 one-point questions is our arithmetic (see section 2).
+- The article ranges use 2020-NEC numbering (for example 250-285).
+- The bulletin also advises reviewing Ohm's law, electrical theory and math, practical field work, and any local code
+  rulings that apply.
 
-"Reference Material: Review of the following is advised":
-- Ohm's Law
-- Electrical Theory and Mathematics
-- Practical Electrical Field Work Practices
-- Local Code Rulings as Applicable
+### Journeyperson Electrician (for comparison): 70 questions, 49 correct (70%) to pass, 210 minutes
 
-### JOURNEYPERSON ELECTRICIAN (for comparison; sub-letters are as printed, including PSI's odd lettering)
+The same areas and the same NEC article ranges as the master outline, with other counts and no Calculations area:
+Electrical Theory 20, Wiring and Protection 20, Wiring Methods and Materials 12, Equipment for General Use 6, Special
+Occupancies 4, Special Equipment 2, Special Communications 6 (total 70).
 
-| # of Questions | Minimum Passing Score | Time Allowed |
-|---|---|---|
-| 70 | 49 (70%) | 210 minutes |
-
-| # | Area and subtopics (verbatim) | Number given |
-|---|---|---|
-| 1. | **Electrical Theory**<br>l. Definitions<br>m. Theory Including Ohm's Law<br>n. Techniques<br>o. Troubleshooting<br>p. Equipment/Devices<br>q. Instruments<br>r. Materials<br>s. Math<br>t. Conversions<br>u. Diagrams<br>v. Symbols | 20 |
-| 2. | **Wiring and Protection**<br>h. NEC Article 100<br>i. NEC Article 110<br>j. NEC Article 200-210<br>k. NEC Article 215-225<br>l. NEC Article 230<br>m. NEC Article 240<br>n. NEC Article 250-285 | 20 |
-| 3. | **Wiring Methods and Materials**<br>g. NEC Article 300<br>h. NEC Article 310-314<br>i. NEC Article 320-330<br>j. NEC Article 332-356<br>k. NEC Article 358-374<br>l. NEC Article 376-398 | 12 |
-| 4. | **Equipment for General Use**<br>e. NEC Article 400-411<br>f. NEC Article 422-427<br>g. NEC Article 430-450<br>h. NEC Article 455-490 | 6 |
-| 5. | **Special Occupancies**<br>d. NEC Article 500-525<br>e. NEC Article 530-547<br>f. NEC Article 550-590 | 4 |
-| 6. | **Special Equipment**<br>c. NEC Article 600-675<br>d. NEC Article 680-695 | 2 |
-| 7. | **Special Communications**<br>c. NEC Article 700-708<br>d. NEC Article 720-830 | 6 |
-
-(The journeyperson outline has no Calculations area. The areas total 70.)
-
-**Bulletin sample questions (paraphrased, all 4-option):**
+**Bulletin sample questions (our one-line summaries of their topics and keys; all have 4 options).** The app uses none of them:
 - A. definition of voltage
 - B. demand load for a 15-kW household range (key: 9.2 kW)
 - C. MI cable conductor material (key: copper)
