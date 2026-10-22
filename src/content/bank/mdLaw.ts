@@ -12,8 +12,9 @@ const md = (loc: string, title: string) => ({ book: 'MD' as const, loc, title })
 
 export const QUESTIONS: Question[] = [
   {
-    id: 'md-law-001', topic: 'md-law', kind: 'law', difficulty: 1, editions: ALL, provenance: prov,
-    stem: 'Under Maryland law, an applicant for a master electrician license must have at least how many years of experience providing electrical services under the direction and supervision of a master electrician (or similar)?',
+    id: 'md-law-001', topic: 'md-law', kind: 'law', difficulty: 1, editions: ALL,
+    provenance: { ...prov, note: 'reworded in the 2026-10-22 similarity pass (stem followed the statute wording)' },
+    stem: 'To apply for a Maryland master electrician license, at least how many years of electrical work under a master electrician (or someone similarly qualified) do you need?',
     choices: ['3 years', '4 years', '5 years', '7 years'],
     answer: 3,
     explain: 'Maryland requires at least 7 years of experience for a master license. A journeyperson license requires 4.',
@@ -21,11 +22,12 @@ export const QUESTIONS: Question[] = [
     ref: md('BOP § 6-304(b)', 'Master license experience'),
   },
   {
-    id: 'md-law-002', topic: 'md-law', kind: 'law', difficulty: 2, editions: ALL, provenance: prov,
-    stem: 'Up to how many years of credit toward the master electrician experience requirement may the State Board allow for completed formal training?',
+    id: 'md-law-002', topic: 'md-law', kind: 'law', difficulty: 2, editions: ALL,
+    provenance: { ...prov, note: 'reworded in the 2026-10-22 similarity pass (stem and explanation followed the statute wording)' },
+    stem: 'A master license applicant has finished formal electrical training that the State Board accepts. What is the most experience credit, in years, the Board can give for it?',
     choices: ['3 years', '4 years', '5 years', '6 years'],
     answer: 0,
-    explain: 'The Board may allow up to 3 years of credit toward the experience requirement for formal training it approves.',
+    explain: 'The Board can count approved formal training as up to 3 years of the experience a master license needs.',
     ref: md('BOP § 6-304(b)(2)', 'Credit for training'),
   },
   {

@@ -1,6 +1,7 @@
 /**
  * The fact question bank. One file per topic (`<topic>.ts` exporting `QUESTIONS: Question[]`),
- * registered here. Every question is original, edition-tagged, and verified (docs/reviews/bank-*.md).
+ * registered here. Every question is original, edition-tagged, verified (docs/reviews/bank-*.md) and
+ * screened against the web for copies of other banks (docs/reviews/similarity-screen.md).
  */
 import type { NecEdition, Question, TopicId } from '@/shared/types'
 import { QUESTIONS as EQUIPMENT } from './equipment'
