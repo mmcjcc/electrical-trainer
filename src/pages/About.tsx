@@ -1,11 +1,12 @@
 /**
  * About (/about): what the exam is (from docs/research/maryland-exam.md, checked 2026-10-16), how the
- * app works, the sources, and the disclaimer.
+ * app works, the sources, the disclaimer (with the trademark notices) and the credits.
  */
 import type { ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { EXAM, EXAM_TOPICS } from '@/content'
 import { card, link, PageHeader } from '@/components/question/ui'
+import oflUrl from '@/assets/fonts/inter/OFL.txt?url'
 
 function Section({ id, title, children }: { id: string; title: string; children: ReactNode }) {
   return (
@@ -76,14 +77,14 @@ export default function About() {
         <h3 className="font-bold text-ink">What you may bring</h3>
         <ul className="list-disc space-y-1.5 pl-5 text-ink">
           <li>
-            <strong>The 2020 NEC (NFPA 70), and nothing else.</strong> You bring your own copy; no study guides.
+            <strong>The 2020 NEC® (NFPA 70®), and nothing else.</strong> You bring your own copy; no study guides.
           </li>
           <li>The book may be indexed, highlighted and underlined. It must not be written in, and it may not hold any added papers, loose or attached.</li>
           <li>
             Tabs: permanent plastic self-adhesive tabs are fine (the bulletin names Avery Swift Tabs and Redi-Tag). Post-it flags are
             not. If the proctor can pull a tab off without tearing the page, it comes off; tabs with paper inserts lose the inserts.
           </li>
-          <li>{EXAM.calculator} The bulletin does not list a calculator of your own as an approved item.</li>
+          <li>{EXAM.calculator} The bulletin does not list a calculator of your own among the items you may bring.</li>
         </ul>
 
         <h3 className="font-bold text-ink">Which code edition</h3>
@@ -141,20 +142,44 @@ export default function About() {
           <li>
             Maryland Code, Business Occupations and Professions Article, Title 6 (the Maryland Electricians Act), and COMAR 09.09
           </li>
-          <li>The code itself: NFPA 70, National Electrical Code, 2020 edition. Look everything up in your own copy.</li>
+          <li>The code itself: NFPA 70®, National Electrical Code®, 2020 edition. Look everything up in your own copy.</li>
         </ul>
       </Section>
 
       <Section id="about-disclaimer" title="Disclaimer">
         <ul className="list-disc space-y-1.5 pl-5 text-ink">
-          <li>This app is not affiliated with, or endorsed by, PSI Services LLC or the Maryland State Board of Electricians.</li>
-          <li>NEC, National Electrical Code and NFPA 70 are registered trademarks of the National Fire Protection Association (NFPA).</li>
           <li>
-            The questions are original practice items written for this app. They are not real exam questions, and the app does
-            not reproduce code text: explanations are in our own words, and you look the values up in your own book.
+            <strong>An independent study aid.</strong> Not affiliated with, sponsored or endorsed by the National Fire Protection
+            Association (NFPA), PSI Services LLC or the Maryland State Board of Electricians.
+          </li>
+          <li>
+            NFPA 70®, National Electrical Code® and NEC® are registered trademarks of the National Fire Protection Association,
+            Quincy, MA. PSI® is a registered trademark of PSI Services LLC.
+          </li>
+          <li>
+            The questions cite sections of the 2020 National Electrical Code® (NFPA 70®); you need your own copy of the code for the
+            open-book exam. The questions are original practice items written for this app, not items from the PSI exam, and the
+            app does not reproduce code text: explanations are in our own words, and you look the values up in your own book.
+          </li>
+          <li>
+            <strong>Study aid only.</strong> It is not a substitute for the code or for professional judgment, and it is not for
+            design or installation work: on the job, the code your jurisdiction adopted and your inspector have the last word.
           </li>
           <li>
             Exam rules change. <strong>Check the current PSI bulletin before you test.</strong>
+          </li>
+        </ul>
+      </Section>
+
+      <Section id="about-credits" title="Credits">
+        <ul className="list-disc space-y-1.5 pl-5 text-ink">
+          <li>Built with React, React Router and Zustand, under the MIT License.</li>
+          <li>
+            The Inter typeface by Rasmus Andersson and the Inter Project Authors, under the{' '}
+            <a href={oflUrl} target="_blank" rel="noopener noreferrer" className={link}>
+              SIL Open Font License 1.1
+            </a>
+            , bundled with the app.
           </li>
         </ul>
       </Section>

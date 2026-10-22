@@ -8,6 +8,7 @@ import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { EXAM, TOPICS } from '@/content'
 import { BookHint } from '@/components/ui/BookHint'
+import { StudyAidNote } from '@/components/ui/StudyAidNote'
 import { btnPrimary, btnSecondary, card, fmtDuration, LETTERS, link, Meter, PageHeader } from '@/components/question/ui'
 import { examHistory, useStore, type FinishedExam } from '@/store'
 import { itemView, safeScore, type ItemView } from './examItem'
@@ -152,6 +153,7 @@ function Results({ last }: { last: FinishedExam }) {
           Progress
         </Link>
       </div>
+      <StudyAidNote />
     </div>
   )
 }

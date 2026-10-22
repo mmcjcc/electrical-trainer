@@ -8,6 +8,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { randomSeed } from '@/calc'
 import { buildExam, EXAM, topic, type ExamPaper } from '@/content'
 import { InlineConfirm } from '@/components/question/InlineConfirm'
+import { StudyAidNote } from '@/components/ui/StudyAidNote'
 import { btnDanger, btnPrimary, btnSecondary, card, fmtDuration, PageHeader, RadioGroup, Switch } from '@/components/question/ui'
 import { seenQuestionIds, useStore } from '@/store'
 
@@ -162,6 +163,7 @@ export default function ExamStart() {
       </section>
 
       <Rules />
+      <StudyAidNote />
     </div>
   )
 }
@@ -179,7 +181,7 @@ function Rules() {
         </li>
         <li>One question on the screen at a time, with the time left shown. You can go back and change answers while time remains.</li>
         <li>A few unscored trial questions may be added; their time does not count against you.</li>
-        <li>Open book: the 2020 NEC (NFPA 70) only, no study guides. Highlighting, underlining and permanent tabs are fine; no writing in the book, no Post-it flags, no loose or attached papers.</li>
+        <li>Open book: the 2020 NEC® (NFPA 70®) only, no study guides. Highlighting, underlining and permanent tabs are fine; no writing in the book, no Post-it flags, no loose or attached papers.</li>
         <li>{EXAM.calculator}</li>
         <li>Pass or fail shows on screen. A failing report breaks the score out by area. {EXAM.retake}</li>
       </ul>

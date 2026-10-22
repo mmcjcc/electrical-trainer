@@ -7,6 +7,7 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { BookHint } from '@/components/ui/BookHint'
+import { StudyAidNote } from '@/components/ui/StudyAidNote'
 import { ChoiceList } from '@/components/question/ChoiceList'
 import { hintLabel } from '@/components/question/QuestionCard'
 import { InlineConfirm } from '@/components/question/InlineConfirm'
@@ -283,6 +284,7 @@ function Run({ exam }: { exam: ExamSession }) {
         Keys: <kbd className="keycap">1</kbd>–<kbd className="keycap">4</kbd> or <kbd className="keycap">A</kbd>–<kbd className="keycap">D</kbd> answer,{' '}
         <kbd className="keycap">←</kbd> <kbd className="keycap">→</kbd> move, <kbd className="keycap">F</kbd> flags.
       </p>
+      <StudyAidNote />
     </div>
   )
 }
