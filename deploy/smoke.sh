@@ -202,12 +202,13 @@ req /
 [ "$(header x-content-type-options)" = nosniff ] || fail "X-Content-Type-Options should be nosniff"
 [ "$(header x-frame-options)" = DENY ] || fail "X-Frame-Options should be DENY"
 CSP="$(header content-security-policy)"
-for d in "default-src 'self'" "script-src 'self';" "connect-src 'self'" "object-src 'none'" "frame-ancestors 'none'" \
-         "https://fonts.googleapis.com" "https://fonts.gstatic.com"; do
+for d in "default-src 'self'" "script-src 'self';" "font-src 'self';" "connect-src 'self'" "object-src 'none'" \
+         "frame-ancestors 'none'"; do
   [[ "$CSP" == *"$d"* ]] || fail "the CSP should have $d; got: $CSP"
 done
 [[ "$CSP" != *unsafe-eval* ]] || fail "the CSP must not allow unsafe-eval; got: $CSP"
-pass "security headers on every answer (200, 404, health, config, assets); CSP scripts 'self' only; server_tokens off"
+[[ "$CSP" != *https://* ]] || fail "the CSP should name no other origin (Inter is bundled, no font CDN); got: $CSP"
+pass "security headers on every answer (200, 404, health, config, assets); CSP 'self' only, no other origin; server_tokens off"
 
 # ---- the log: no cookie, no identity, no health checks, no complaints --------------------------------------------
 req "/some/route?smoke=1" -H 'Cookie: __Secure-sso=smoke-cookie-value-1; __Secure-sso_1=smoke-cookie-value-2' \
